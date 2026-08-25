@@ -14,9 +14,16 @@ def get_db_connection():
     Uses DictCursor to automatically format records as dictionary rows.
     """
     try:
-        database_url = os.getenv('MYSQL_URL')
+        database_url = os.getenv('MYSQL_PUBLIC_URL') or os.getenv('MYSQL_URL')
         if database_url:
             parsed_url = urlparse(database_url)
+            if not parsed_url.hostname:
+                raise ValueError('MYSQL_PUBLIC_URL or MYSQL_URL must be a valid MySQL URL')
+            if parsed_url.hostname.endswith('.railway.internal'):
+                raise RuntimeError(
+                    'Railway private MySQL host detected. Set MYSQL_PUBLIC_URL or use '
+                    'MYSQL_HOST with Railway public TCP credentials in Vercel.'
+                )
             host = parsed_url.hostname
             port = parsed_url.port or 3306
             user = parsed_url.username
