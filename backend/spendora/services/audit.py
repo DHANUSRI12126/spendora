@@ -11,7 +11,7 @@ def log_activity(user_id, action, description, ip_address=None):
         with connection.cursor() as cursor:
             sql = """
                 INSERT INTO audit_logs (user_id, action, description, ip_address)
-                VALUES (%s, %s, %s, %s)
+                VALUES (?, ?, ?, ?)
             """
             cursor.execute(sql, (user_id, action, description, ip_address))
     except Exception as e:

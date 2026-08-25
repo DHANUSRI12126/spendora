@@ -9,6 +9,7 @@ load_dotenv(dotenv_path=env_path)
 load_dotenv()
 
 # Import blueprints from spendora package
+from spendora.db import init_db
 from spendora.routes.auth import auth_bp
 from spendora.routes.transactions import income_bp, expenses_bp
 from spendora.routes.categories import categories_bp
@@ -18,6 +19,9 @@ from spendora.routes.reports import reports_bp
 from spendora.routes.ai import ai_bp
 from spendora.routes.voice import voice_bp
 from spendora.routes.receipts import receipts_bp
+
+# Initialise SQLite database (creates file + tables if not exists)
+init_db()
 
 app = Flask(__name__)
 

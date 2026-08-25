@@ -43,9 +43,9 @@ def create_income():
         with connection.cursor() as cursor:
             sql = """
                 INSERT INTO income (user_id, amount, source, date, description, notes)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (?, ?, ?, ?, ?, ?)
             """
-            cursor.execute(sql, (g.current_user['id'], amount_val, source, date_val, description, notes))
+            cursor.execute(sql, (g.current_user['id'], amount_val, source, str(date_val), description, notes))
             income_id = cursor.lastrowid
             
             log_activity(g.current_user['id'], 'INCOME_CREATE', f'Added income: {source} - {amount_val}', request.remote_addr)
@@ -67,7 +67,7 @@ def get_incomes():
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            sql = "SELECT * FROM income WHERE user_id = %s ORDER BY date DESC"
+            sql = "SELECT * FROM income WHERE user_id = ? ORDER BY date DESC"
             cursor.execute(sql, (g.current_user['id'],))
             incomes = cursor.fetchall()
             return jsonify({'income': incomes}), 200
@@ -84,7 +84,7 @@ def get_income_by_id(income_id):
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            sql = "SELECT * FROM income WHERE id = %s AND user_id = %s"
+            sql = "SELECT * FROM income WHERE id = ? AND user_id = ?"
             cursor.execute(sql, (income_id, g.current_user['id']))
             income = cursor.fetchone()
             if not income:
@@ -126,17 +126,17 @@ def update_income(income_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check ownership
-            cursor.execute("SELECT user_id FROM income WHERE id = %s", (income_id,))
+            cursor.execute("SELECT user_id FROM income WHERE id = ?", (income_id,))
             record = cursor.fetchone()
             if not record or record['user_id'] != g.current_user['id']:
                 return jsonify({'message': 'Income record not found or unauthorized.'}), 404
 
             sql = """
                 UPDATE income 
-                SET amount = %s, source = %s, date = %s, description = %s, notes = %s 
-                WHERE id = %s AND user_id = %s
+                SET amount = ?, source = ?, date = ?, description = ?, notes = ? 
+                WHERE id = ? AND user_id = ?
             """
-            cursor.execute(sql, (amount_val, source, date_val, description, notes, income_id, g.current_user['id']))
+            cursor.execute(sql, (amount_val, source, str(date_val), description, notes, income_id, g.current_user['id']))
             
             log_activity(g.current_user['id'], 'INCOME_UPDATE', f'Updated income ID {income_id}: {source} - {amount_val}', request.remote_addr)
             return jsonify({'message': 'Income updated successfully.'}), 200
@@ -154,12 +154,12 @@ def delete_income(income_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check ownership
-            cursor.execute("SELECT user_id, amount, source FROM income WHERE id = %s", (income_id,))
+            cursor.execute("SELECT user_id, amount, source FROM income WHERE id = ?", (income_id,))
             record = cursor.fetchone()
             if not record or record['user_id'] != g.current_user['id']:
                 return jsonify({'message': 'Income record not found or unauthorized.'}), 404
 
-            cursor.execute("DELETE FROM income WHERE id = %s AND user_id = %s", (income_id, g.current_user['id']))
+            cursor.execute("DELETE FROM income WHERE id = ? AND user_id = ?", (income_id, g.current_user['id']))
             
             log_activity(g.current_user['id'], 'INCOME_DELETE', f'Deleted income ID {income_id}: {record["source"]} - {record["amount"]}', request.remote_addr)
             return jsonify({'message': 'Income deleted successfully.'}), 200
@@ -209,7 +209,7 @@ def create_expense():
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Verify category exists and is valid for user
-            cursor.execute("SELECT * FROM categories WHERE id = %s AND (is_system = TRUE OR user_id = %s)", (category_id_val, g.current_user['id']))
+            cursor.execute("SELECT * FROM categories WHERE id = ? AND (is_system = 1 OR user_id = ?)", (category_id_val, g.current_user['id']))
             category = cursor.fetchone()
             if not category:
                 return jsonify({'message': 'Invalid category selected.'}), 400
@@ -217,9 +217,9 @@ def create_expense():
             # Insert expense
             sql = """
                 INSERT INTO expenses (user_id, amount, category_id, date, payment_method, description, notes)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """
-            cursor.execute(sql, (g.current_user['id'], amount_val, category_id_val, date_val, payment_method, description, notes))
+            cursor.execute(sql, (g.current_user['id'], amount_val, category_id_val, str(date_val), payment_method, description, notes))
             expense_id = cursor.lastrowid
             
             # Check monthly budget and generate alerts
@@ -227,14 +227,14 @@ def create_expense():
                 month = date_val.month
                 year = date_val.year
                 
-                cursor.execute("SELECT * FROM budgets WHERE user_id = %s AND month = %s AND year = %s", (g.current_user['id'], month, year))
+                cursor.execute("SELECT * FROM budgets WHERE user_id = ? AND month = ? AND year = ?", (g.current_user['id'], month, year))
                 budget = cursor.fetchone()
                 if budget:
                     total_budget = float(budget['amount'])
                     
                     cursor.execute("""
                         SELECT SUM(amount) as total_spent FROM expenses 
-                        WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                        WHERE user_id = ? AND CAST(strftime('%m', date) AS INTEGER) = ? AND CAST(strftime('%Y', date) AS INTEGER) = ?
                     """, (g.current_user['id'], month, year))
                     result = cursor.fetchone()
                     total_spent = float(result['total_spent']) if (result and result.get('total_spent')) else 0.0
@@ -244,17 +244,17 @@ def create_expense():
                     if percent_used >= 100:
                         cursor.execute("""
                             INSERT INTO notifications (user_id, title, message, type, is_read)
-                            VALUES (%s, %s, %s, %s, FALSE)
+                            VALUES (?, ?, ?, ?, 0)
                         """, (g.current_user['id'], 'Budget Exceeded!', f'Warning: You have exceeded your monthly budget of ₹{total_budget:,.2f}. Spent so far: ₹{total_spent:,.2f}.', 'budget_alert'))
                     elif percent_used >= 85:
                         cursor.execute("""
                             INSERT INTO notifications (user_id, title, message, type, is_read)
-                            VALUES (%s, %s, %s, %s, FALSE)
+                            VALUES (?, ?, ?, ?, 0)
                         """, (g.current_user['id'], 'Budget Warning (85%)', f'Caution: You have utilized {percent_used:.1f}% of your monthly budget (₹{total_budget:,.2f}). Spent: ₹{total_spent:,.2f}.', 'budget_alert'))
                     elif percent_used >= 70:
                         cursor.execute("""
                             INSERT INTO notifications (user_id, title, message, type, is_read)
-                            VALUES (%s, %s, %s, %s, FALSE)
+                            VALUES (?, ?, ?, ?, 0)
                         """, (g.current_user['id'], 'Budget Warning (70%)', f'Notification: You have utilized {percent_used:.1f}% of your monthly budget (₹{total_budget:,.2f}). Spent: ₹{total_spent:,.2f}.', 'budget_alert'))
             except Exception as b_err:
                 print(f"Budget notification check error (non-fatal): {str(b_err)}")
@@ -281,7 +281,7 @@ def get_expenses():
             sql = """
                 SELECT e.*, c.name AS category_name FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = %s 
+                WHERE e.user_id = ? 
                 ORDER BY e.date DESC
             """
             cursor.execute(sql, (g.current_user['id'],))
@@ -303,7 +303,7 @@ def get_expense_by_id(expense_id):
             sql = """
                 SELECT e.*, c.name AS category_name FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.id = %s AND e.user_id = %s
+                WHERE e.id = ? AND e.user_id = ?
             """
             cursor.execute(sql, (expense_id, g.current_user['id']))
             expense = cursor.fetchone()
@@ -347,23 +347,23 @@ def update_expense(expense_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check ownership
-            cursor.execute("SELECT user_id FROM expenses WHERE id = %s", (expense_id,))
+            cursor.execute("SELECT user_id FROM expenses WHERE id = ?", (expense_id,))
             record = cursor.fetchone()
             if not record or record['user_id'] != g.current_user['id']:
                 return jsonify({'message': 'Expense record not found or unauthorized.'}), 404
 
             # Verify category
-            cursor.execute("SELECT * FROM categories WHERE id = %s AND (is_system = TRUE OR user_id = %s)", (category_id, g.current_user['id']))
+            cursor.execute("SELECT * FROM categories WHERE id = ? AND (is_system = 1 OR user_id = ?)", (category_id, g.current_user['id']))
             category = cursor.fetchone()
             if not category:
                 return jsonify({'message': 'Invalid category selected.'}), 400
 
             sql = """
                 UPDATE expenses 
-                SET amount = %s, category_id = %s, date = %s, payment_method = %s, description = %s, notes = %s 
-                WHERE id = %s AND user_id = %s
+                SET amount = ?, category_id = ?, date = ?, payment_method = ?, description = ?, notes = ? 
+                WHERE id = ? AND user_id = ?
             """
-            cursor.execute(sql, (amount_val, category_id, date_val, payment_method, description, notes, expense_id, g.current_user['id']))
+            cursor.execute(sql, (amount_val, category_id, str(date_val), payment_method, description, notes, expense_id, g.current_user['id']))
             
             log_activity(g.current_user['id'], 'EXPENSE_UPDATE', f'Updated expense ID {expense_id}: {description} - {amount_val}', request.remote_addr)
             return jsonify({'message': 'Expense updated successfully.'}), 200
@@ -381,12 +381,12 @@ def delete_expense(expense_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check ownership
-            cursor.execute("SELECT user_id, amount, description FROM expenses WHERE id = %s", (expense_id,))
+            cursor.execute("SELECT user_id, amount, description FROM expenses WHERE id = ?", (expense_id,))
             record = cursor.fetchone()
             if not record or record['user_id'] != g.current_user['id']:
                 return jsonify({'message': 'Expense record not found or unauthorized.'}), 404
 
-            cursor.execute("DELETE FROM expenses WHERE id = %s AND user_id = %s", (expense_id, g.current_user['id']))
+            cursor.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, g.current_user['id']))
             
             log_activity(g.current_user['id'], 'EXPENSE_DELETE', f'Deleted expense ID {expense_id}: {record["description"]} - {record["amount"]}', request.remote_addr)
             return jsonify({'message': 'Expense deleted successfully.'}), 200
@@ -424,7 +424,7 @@ def get_unified_transactions():
                 SELECT id, amount, source AS name, date, description, notes, 'income' AS type, 
                        NULL AS category_id, 'Income' AS category_name, NULL AS payment_method
                 FROM income 
-                WHERE user_id = %s
+                WHERE user_id = ?
             """
             
             # Query expenses
@@ -433,48 +433,40 @@ def get_unified_transactions():
                        e.category_id, c.name AS category_name, e.payment_method
                 FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = %s
+                WHERE e.user_id = ?
             """
             
-            # Combine queries in Python to make filtering and dynamic building simpler
             income_params = [g.current_user['id']]
             expense_params = [g.current_user['id']]
             
             # Subfilters
             if search:
-                # search text
-                income_query += " AND (source LIKE %s OR description LIKE %s OR notes LIKE %s)"
+                income_query += " AND (source LIKE ? OR description LIKE ? OR notes LIKE ?)"
                 income_params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
                 
-                expense_query += " AND (e.description LIKE %s OR e.notes LIKE %s)"
+                expense_query += " AND (e.description LIKE ? OR e.notes LIKE ?)"
                 expense_params.extend([f"%{search}%", f"%{search}%"])
                 
             if start_date:
-                income_query += " AND date >= %s"
+                income_query += " AND date >= ?"
                 income_params.append(start_date)
-                expense_query += " AND e.date >= %s"
+                expense_query += " AND e.date >= ?"
                 expense_params.append(start_date)
                 
             if end_date:
-                income_query += " AND date <= %s"
+                income_query += " AND date <= ?"
                 income_params.append(end_date)
-                expense_query += " AND e.date <= %s"
+                expense_query += " AND e.date <= ?"
                 expense_params.append(end_date)
 
             if category_id:
-                # Income doesn't have a structured category_id in our schema (it maps via 'source')
-                # But to support filtering if requested:
-                expense_query += " AND e.category_id = %s"
+                expense_query += " AND e.category_id = ?"
                 expense_params.append(category_id)
-                # If a specific category filter is requested, income won't match it (unless it's an income category)
-                # Let's inspect the category type. If it's a specific expense category, we bypass income.
-                cursor.execute("SELECT type FROM categories WHERE id = %s", (category_id,))
+                cursor.execute("SELECT type FROM categories WHERE id = ?", (category_id,))
                 cat = cursor.fetchone()
                 if cat and cat['type'] == 'income':
-                    # Income type
-                    expense_query += " AND 1=0" # no expense matches
+                    expense_query += " AND 1=0"
                 else:
-                    # Expense type, so income won't match
                     income_query += " AND 1=0"
 
             # Execute based on txn_type
@@ -486,7 +478,6 @@ def get_unified_transactions():
                 cursor.execute(expense_query, tuple(expense_params))
                 transactions = list(cursor.fetchall())
             else:
-                # Combine both
                 cursor.execute(income_query, tuple(income_params))
                 incomes = list(cursor.fetchall())
                 
@@ -499,14 +490,8 @@ def get_unified_transactions():
             is_desc = sort_order == 'desc'
             if sort_by == 'amount':
                 transactions.sort(key=lambda x: float(x['amount']), reverse=is_desc)
-            else: # date
-                # Convert date string if it's returning as datetime.date object
-                transactions.sort(key=lambda x: x['date'].strftime('%Y-%m-%d') if isinstance(x['date'], datetime.date) else x['date'], reverse=is_desc)
-
-            # Convert date objects to string for JSON serialization
-            for txn in transactions:
-                if isinstance(txn['date'], datetime.date):
-                    txn['date'] = txn['date'].strftime('%Y-%m-%d')
+            else: # date — SQLite returns ISO strings so direct comparison works
+                transactions.sort(key=lambda x: x['date'] or '', reverse=is_desc)
 
             return jsonify({'transactions': transactions}), 200
     except Exception as e:

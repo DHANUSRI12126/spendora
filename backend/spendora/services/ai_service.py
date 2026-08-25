@@ -46,13 +46,17 @@ def rule_based_spending_analysis(user_id, language='en'):
             # 1. Total Income & Expense (Current Month)
             cursor.execute("""
                 SELECT SUM(amount) AS amt FROM income 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ? 
+                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (user_id, month, year))
             month_income = float(cursor.fetchone()['amt'] or 0.0)
 
             cursor.execute("""
                 SELECT SUM(amount) AS amt FROM expenses 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ? 
+                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (user_id, month, year))
             month_expenses = float(cursor.fetchone()['amt'] or 0.0)
 
@@ -60,7 +64,9 @@ def rule_based_spending_analysis(user_id, language='en'):
             cursor.execute("""
                 SELECT c.name, SUM(e.amount) AS amt FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = %s AND MONTH(e.date) = %s AND YEAR(e.date) = %s
+                WHERE e.user_id = ? 
+                  AND CAST(strftime('%m', e.date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', e.date) AS INTEGER) = ?
                 GROUP BY c.name ORDER BY amt DESC
             """, (user_id, month, year))
             cat_breakdown = cursor.fetchall()
@@ -68,7 +74,7 @@ def rule_based_spending_analysis(user_id, language='en'):
             # 3. Get monthly budget
             cursor.execute("""
                 SELECT amount FROM budgets 
-                WHERE user_id = %s AND month = %s AND year = %s
+                WHERE user_id = ? AND month = ? AND year = ?
             """, (user_id, month, year))
             budget_row = cursor.fetchone()
             monthly_budget = float(budget_row['amount']) if budget_row else 0.0
@@ -266,7 +272,9 @@ def month_expenses_helper(user_id, month, year):
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT SUM(amount) AS amt FROM expenses 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ? 
+                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (user_id, month, year))
             return float(cursor.fetchone()['amt'] or 0.0)
     finally:
@@ -293,21 +301,25 @@ def rule_based_chat(user_id, query, language='en'):
             # Monthly totals
             cursor.execute("""
                 SELECT SUM(amount) AS amt FROM income 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ? 
+                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (user_id, month, year))
             m_inc = float(cursor.fetchone()['amt'] or 0.0)
 
             cursor.execute("""
                 SELECT SUM(amount) AS amt FROM expenses 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ? 
+                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (user_id, month, year))
             m_exp = float(cursor.fetchone()['amt'] or 0.0)
 
             # Overall totals
-            cursor.execute("SELECT SUM(amount) AS total_inc FROM income WHERE user_id = %s", (user_id,))
+            cursor.execute("SELECT SUM(amount) AS total_inc FROM income WHERE user_id = ?", (user_id,))
             t_inc = float(cursor.fetchone()['total_inc'] or 0.0)
 
-            cursor.execute("SELECT SUM(amount) AS total_exp FROM expenses WHERE user_id = %s", (user_id,))
+            cursor.execute("SELECT SUM(amount) AS total_exp FROM expenses WHERE user_id = ?", (user_id,))
             t_exp = float(cursor.fetchone()['total_exp'] or 0.0)
 
             bal = t_inc - t_exp
@@ -315,7 +327,7 @@ def rule_based_chat(user_id, query, language='en'):
             # Monthly budget
             cursor.execute("""
                 SELECT amount FROM budgets 
-                WHERE user_id = %s AND month = %s AND year = %s
+                WHERE user_id = ? AND month = ? AND year = ?
             """, (user_id, month, year))
             budget_row = cursor.fetchone()
             monthly_budget = float(budget_row['amount']) if budget_row else 0.0
@@ -324,7 +336,9 @@ def rule_based_chat(user_id, query, language='en'):
             cursor.execute("""
                 SELECT c.name, SUM(e.amount) AS amt FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = %s AND MONTH(e.date) = %s AND YEAR(e.date) = %s
+                WHERE e.user_id = ? 
+                  AND CAST(strftime('%m', e.date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', e.date) AS INTEGER) = ?
                 GROUP BY c.name
             """, (user_id, month, year))
             cat_rows = cursor.fetchall()
@@ -453,11 +467,16 @@ def get_monthly_data_context(user_id):
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT amount, categories_budget FROM budgets WHERE user_id = %s AND month = %s AND year = %s", (user_id, month, year))
+            cursor.execute("SELECT amount, categories_budget FROM budgets WHERE user_id = ? AND month = ? AND year = ?", (user_id, month, year))
             budget_row = cursor.fetchone()
             budget = float(budget_row['amount']) if budget_row else 0.0
             
-            cursor.execute("SELECT amount, source, date, description FROM income WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s", (user_id, month, year))
+            cursor.execute("""
+                SELECT amount, source, date, description FROM income 
+                WHERE user_id = ? 
+                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
+            """, (user_id, month, year))
             incomes = cursor.fetchall()
             for inc in incomes:
                 inc['amount'] = float(inc['amount'])
@@ -468,7 +487,9 @@ def get_monthly_data_context(user_id):
                 SELECT e.amount, c.name as category, e.date, e.description, e.payment_method 
                 FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = %s AND MONTH(e.date) = %s AND YEAR(e.date) = %s
+                WHERE e.user_id = ? 
+                  AND CAST(strftime('%m', e.date) AS INTEGER) = ? 
+                  AND CAST(strftime('%Y', e.date) AS INTEGER) = ?
             """, (user_id, month, year))
             expenses = cursor.fetchall()
             for exp in expenses:

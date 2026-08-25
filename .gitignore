@@ -1,10 +1,32 @@
+# Dependencies & Builds
 node_modules/
 frontend/node_modules/
 frontend/dist/
 dist/
+
+# Python Cache & Bytecode
 __pycache__/
+**/__pycache__/
 *.py[cod]
+*$py.class
+*.pyc
+
+# Environment Files & Secrets
 .env
+.env.*
+!.env.example
 backend/.env
+backend/.env.*
+!backend/.env.example
+
+# SQLite Databases
+*.db
+*.sqlite3
+backend/*.db
+spendora.db
+backend/spendora.db
+
+# Vercel & Temporary
 .vercel/
-.vercel
+.DS_Store
+Thumbs.db

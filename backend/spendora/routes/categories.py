@@ -20,7 +20,7 @@ def get_categories():
             else:
                 sql = """
                     SELECT * FROM categories 
-                    WHERE (is_system = TRUE OR user_id = %s) AND status = 'active'
+                    WHERE (is_system = 1 OR user_id = ?) AND status = 'active'
                     ORDER BY is_system DESC, name ASC
                 """
                 cursor.execute(sql, (g.current_user['id'],))
@@ -53,7 +53,7 @@ def create_category():
             # Check if category already exists (system-wide or for this user)
             check_sql = """
                 SELECT id FROM categories 
-                WHERE name = %s AND type = %s AND (is_system = TRUE OR user_id = %s)
+                WHERE name = ? AND type = ? AND (is_system = 1 OR user_id = ?)
             """
             cursor.execute(check_sql, (name, cat_type, g.current_user['id']))
             if cursor.fetchone():
@@ -61,12 +61,12 @@ def create_category():
 
             # Determine system flag based on role
             is_admin = g.current_user['role'] == 'ADMIN'
-            is_system = is_admin
+            is_system = 1 if is_admin else 0
             user_id = None if is_admin else g.current_user['id']
 
             sql = """
                 INSERT INTO categories (name, type, is_system, user_id, status)
-                VALUES (%s, %s, %s, %s, 'active')
+                VALUES (?, ?, ?, ?, 'active')
             """
             cursor.execute(sql, (name, cat_type, is_system, user_id))
             cat_id = cursor.lastrowid
@@ -108,7 +108,7 @@ def update_category(cat_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check ownership
-            cursor.execute("SELECT * FROM categories WHERE id = %s", (cat_id,))
+            cursor.execute("SELECT * FROM categories WHERE id = ?", (cat_id,))
             category = cursor.fetchone()
             if not category:
                 return jsonify({'message': 'Category not found.'}), 404
@@ -119,7 +119,7 @@ def update_category(cat_id):
                     return jsonify({'message': 'Unauthorized to modify this category.'}), 403
 
             # Update category
-            sql = "UPDATE categories SET name = %s, status = %s WHERE id = %s"
+            sql = "UPDATE categories SET name = ?, status = ? WHERE id = ?"
             cursor.execute(sql, (name, status, cat_id))
 
             log_activity(g.current_user['id'], 'CATEGORY_UPDATE', f'Updated category ID {cat_id} to name={name}, status={status}', request.remote_addr)
@@ -137,7 +137,7 @@ def delete_category(cat_id):
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM categories WHERE id = %s", (cat_id,))
+            cursor.execute("SELECT * FROM categories WHERE id = ?", (cat_id,))
             category = cursor.fetchone()
             if not category:
                 return jsonify({'message': 'Category not found.'}), 404
@@ -147,7 +147,7 @@ def delete_category(cat_id):
                     return jsonify({'message': 'Unauthorized to delete this category.'}), 403
 
             # Delete the category (relational integrity ON DELETE CASCADE will handle references)
-            cursor.execute("DELETE FROM categories WHERE id = %s", (cat_id,))
+            cursor.execute("DELETE FROM categories WHERE id = ?", (cat_id,))
 
             log_activity(g.current_user['id'], 'CATEGORY_DELETE', f'Deleted category ID {cat_id} ({category["name"]})', request.remote_addr)
             return jsonify({'message': 'Category deleted successfully.'}), 200

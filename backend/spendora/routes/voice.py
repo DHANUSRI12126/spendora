@@ -130,7 +130,7 @@ def process_voice_command():
         category_id = 16 # default 'Other'
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT id FROM categories WHERE name = %s AND (is_system=TRUE OR user_id=%s)", (matched_category, g.current_user['id']))
+                cursor.execute("SELECT id FROM categories WHERE name = ? AND (is_system=1 OR user_id=?)", (matched_category, g.current_user['id']))
                 row = cursor.fetchone()
                 if row:
                     category_id = row['id']

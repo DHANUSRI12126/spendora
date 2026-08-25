@@ -47,7 +47,7 @@ def create_budget():
             # Check if budget already exists
             cursor.execute("""
                 SELECT id FROM budgets 
-                WHERE user_id = %s AND month = %s AND year = %s
+                WHERE user_id = ? AND month = ? AND year = ?
             """, (g.current_user['id'], month_val, year_val))
             if cursor.fetchone():
                 return jsonify({'message': f'Budget already exists for {month_val}/{year_val}. Edit the existing budget instead.'}), 400
@@ -57,7 +57,7 @@ def create_budget():
 
             sql = """
                 INSERT INTO budgets (user_id, month, year, amount, categories_budget)
-                VALUES (%s, %s, %s, %s, %s)
+                VALUES (?, ?, ?, ?, ?)
             """
             cursor.execute(sql, (g.current_user['id'], month_val, year_val, amount_val, categories_json))
             budget_id = cursor.lastrowid
@@ -81,7 +81,7 @@ def get_budgets():
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            sql = "SELECT * FROM budgets WHERE user_id = %s ORDER BY year DESC, month DESC"
+            sql = "SELECT * FROM budgets WHERE user_id = ? ORDER BY year DESC, month DESC"
             cursor.execute(sql, (g.current_user['id'],))
             budgets = cursor.fetchall()
             
@@ -109,7 +109,7 @@ def get_budget_by_id(budget_id):
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            sql = "SELECT * FROM budgets WHERE id = %s AND user_id = %s"
+            sql = "SELECT * FROM budgets WHERE id = ? AND user_id = ?"
             cursor.execute(sql, (budget_id, g.current_user['id']))
             budget = cursor.fetchone()
             if not budget:
@@ -152,14 +152,14 @@ def update_budget(budget_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check ownership
-            cursor.execute("SELECT user_id, month, year FROM budgets WHERE id = %s", (budget_id,))
+            cursor.execute("SELECT user_id, month, year FROM budgets WHERE id = ?", (budget_id,))
             record = cursor.fetchone()
             if not record or record['user_id'] != g.current_user['id']:
                 return jsonify({'message': 'Budget not found or unauthorized.'}), 404
 
             categories_json = json.dumps(categories_budget)
 
-            sql = "UPDATE budgets SET amount = %s, categories_budget = %s WHERE id = %s"
+            sql = "UPDATE budgets SET amount = ?, categories_budget = ? WHERE id = ?"
             cursor.execute(sql, (amount_val, categories_json, budget_id))
 
             log_activity(g.current_user['id'], 'BUDGET_UPDATE', f'Updated budget ID {budget_id} to amount: {amount_val}', request.remote_addr)
@@ -178,12 +178,12 @@ def delete_budget(budget_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check ownership
-            cursor.execute("SELECT user_id, month, year FROM budgets WHERE id = %s", (budget_id,))
+            cursor.execute("SELECT user_id, month, year FROM budgets WHERE id = ?", (budget_id,))
             record = cursor.fetchone()
             if not record or record['user_id'] != g.current_user['id']:
                 return jsonify({'message': 'Budget not found or unauthorized.'}), 404
 
-            cursor.execute("DELETE FROM budgets WHERE id = %s", (budget_id,))
+            cursor.execute("DELETE FROM budgets WHERE id = ?", (budget_id,))
 
             log_activity(g.current_user['id'], 'BUDGET_DELETE', f'Deleted budget ID {budget_id} for {record["month"]}/{record["year"]}', request.remote_addr)
             return jsonify({'message': 'Budget deleted successfully.'}), 200
@@ -201,7 +201,6 @@ def check_budget_alerts():
     Returns spent amount, total budget, percent used, status ('safe', 'warning', 'exceeded').
     Also checks category-specific budgets.
     """
-    # Current date
     now = datetime.datetime.now()
     month = now.month
     year = now.year
@@ -213,7 +212,7 @@ def check_budget_alerts():
             # Fetch budget
             cursor.execute("""
                 SELECT * FROM budgets 
-                WHERE user_id = %s AND month = %s AND year = %s
+                WHERE user_id = ? AND month = ? AND year = ?
             """, (g.current_user['id'], month, year))
             budget = cursor.fetchone()
             
@@ -225,10 +224,12 @@ def check_budget_alerts():
 
             total_budget = float(budget['amount'])
             
-            # Fetch total expenses for current month
+            # Fetch total expenses for current month using strftime
             cursor.execute("""
                 SELECT SUM(amount) as total_spent FROM expenses 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ? 
+                  AND CAST(strftime('%m', date) AS INTEGER) = ?
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (g.current_user['id'], month, year))
             result = cursor.fetchone()
             total_spent = float(result['total_spent'] or 0)
@@ -250,7 +251,9 @@ def check_budget_alerts():
                     # Fetch expenses per category for this month
                     cursor.execute("""
                         SELECT category_id, SUM(amount) as amt_spent FROM expenses 
-                        WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                        WHERE user_id = ?
+                          AND CAST(strftime('%m', date) AS INTEGER) = ?
+                          AND CAST(strftime('%Y', date) AS INTEGER) = ?
                         GROUP BY category_id
                     """, (g.current_user['id'], month, year))
                     cat_expenses = {item['category_id']: float(item['amt_spent']) for item in cursor.fetchall()}
@@ -269,7 +272,7 @@ def check_budget_alerts():
                             cat_status = 'warning'
                             
                         # Fetch category name
-                        cursor.execute("SELECT name FROM categories WHERE id = %s", (cat_id,))
+                        cursor.execute("SELECT name FROM categories WHERE id = ?", (cat_id,))
                         cat_info = cursor.fetchone()
                         cat_name = cat_info['name'] if cat_info else 'Unknown'
                         

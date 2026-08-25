@@ -26,14 +26,14 @@ def create_group():
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # 1. Insert Group
-            sql = "INSERT INTO `groups` (name, description, creator_id) VALUES (%s, %s, %s)"
+            sql = "INSERT INTO groups (name, description, creator_id) VALUES (?, ?, ?)"
             cursor.execute(sql, (name, description, g.current_user['id']))
             group_id = cursor.lastrowid
 
             # 2. Add Creator to Group Members
             cursor.execute("""
                 INSERT INTO group_members (group_id, user_id) 
-                VALUES (%s, %s)
+                VALUES (?, ?)
             """, (group_id, g.current_user['id']))
 
             log_activity(g.current_user['id'], 'GROUP_CREATE', f'Created group: {name} (ID: {group_id})', request.remote_addr)
@@ -64,10 +64,10 @@ def get_groups():
             sql = """
                 SELECT g.*, u.full_name AS creator_name,
                 (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count
-                FROM `groups` g
+                FROM groups g
                 JOIN group_members gm ON g.id = gm.group_id
                 JOIN users u ON g.creator_id = u.id
-                WHERE gm.user_id = %s
+                WHERE gm.user_id = ?
                 ORDER BY g.created_at DESC
             """
             cursor.execute(sql, (g.current_user['id'],))
@@ -87,16 +87,16 @@ def get_group_by_id(group_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Verify user is a member
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, g.current_user['id']))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, g.current_user['id']))
             if not cursor.fetchone():
                 return jsonify({'message': 'Group not found or unauthorized.'}), 404
 
             # Fetch Group Info
             cursor.execute("""
                 SELECT g.*, u.full_name AS creator_name 
-                FROM `groups` g
+                FROM groups g
                 JOIN users u ON g.creator_id = u.id
-                WHERE g.id = %s
+                WHERE g.id = ?
             """, (group_id,))
             group = cursor.fetchone()
 
@@ -105,7 +105,7 @@ def get_group_by_id(group_id):
                 SELECT u.id, u.full_name, u.email, gm.joined_at 
                 FROM group_members gm
                 JOIN users u ON gm.user_id = u.id
-                WHERE gm.group_id = %s
+                WHERE gm.group_id = ?
             """, (group_id,))
             members = cursor.fetchall()
 
@@ -115,13 +115,10 @@ def get_group_by_id(group_id):
                 FROM group_expenses ge
                 JOIN users u ON ge.paid_by_id = u.id
                 JOIN categories c ON ge.category_id = c.id
-                WHERE ge.group_id = %s
+                WHERE ge.group_id = ?
                 ORDER BY ge.date DESC, ge.created_at DESC
             """, (group_id,))
             expenses = cursor.fetchall()
-            for exp in expenses:
-                if isinstance(exp['date'], datetime.date):
-                    exp['date'] = exp['date'].strftime('%Y-%m-%d')
 
             # Fetch Settlements (pending and completed)
             cursor.execute("""
@@ -129,13 +126,10 @@ def get_group_by_id(group_id):
                 FROM settlements s
                 JOIN users f ON s.from_user_id = f.id
                 JOIN users t ON s.to_user_id = t.id
-                WHERE s.group_id = %s
+                WHERE s.group_id = ?
                 ORDER BY s.status DESC, s.amount DESC
             """, (group_id,))
             settlements = cursor.fetchall()
-            for s in settlements:
-                if isinstance(s['date'], datetime.date):
-                    s['date'] = s['date'].strftime('%Y-%m-%d')
 
             return jsonify({
                 'group': group,
@@ -167,12 +161,12 @@ def add_group_member(group_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # 1. Verify caller is a member of this group
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, g.current_user['id']))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, g.current_user['id']))
             if not cursor.fetchone():
                 return jsonify({'message': 'Group not found or unauthorized.'}), 404
 
             # 2. Find target user or auto-provision account if not registered yet
-            cursor.execute("SELECT id, full_name FROM users WHERE email = %s", (email,))
+            cursor.execute("SELECT id, full_name FROM users WHERE email = ?", (email,))
             user = cursor.fetchone()
             if not user:
                 import bcrypt
@@ -183,18 +177,18 @@ def add_group_member(group_id):
                 pass_hash = bcrypt.hashpw('password123'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 cursor.execute("""
                     INSERT INTO users (full_name, email, password_hash, role, status)
-                    VALUES (%s, %s, %s, 'USER', 'active')
+                    VALUES (?, ?, ?, 'USER', 'active')
                 """, (name_part, email, pass_hash))
                 new_user_id = cursor.lastrowid
                 user = {'id': new_user_id, 'full_name': name_part}
 
             # 3. Check if user is already a member
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, user['id']))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, user['id']))
             if cursor.fetchone():
                 return jsonify({'message': 'User is already a member of this group.'}), 400
 
             # 4. Insert member
-            cursor.execute("INSERT INTO group_members (group_id, user_id) VALUES (%s, %s)", (group_id, user['id']))
+            cursor.execute("INSERT INTO group_members (group_id, user_id) VALUES (?, ?)", (group_id, user['id']))
 
             # Log & Recalculate
             log_activity(g.current_user['id'], 'GROUP_ADD_MEMBER', f'Added user ID {user["id"]} to group {group_id}', request.remote_addr)
@@ -215,7 +209,7 @@ def remove_group_member(group_id, user_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # 1. Verify caller is creator or the member leaving
-            cursor.execute("SELECT creator_id FROM `groups` WHERE id = %s", (group_id,))
+            cursor.execute("SELECT creator_id FROM groups WHERE id = ?", (group_id,))
             group = cursor.fetchone()
             if not group:
                 return jsonify({'message': 'Group not found.'}), 404
@@ -227,16 +221,16 @@ def remove_group_member(group_id, user_id):
                 return jsonify({'message': 'Unauthorized to remove members.'}), 403
 
             # 2. Check if target user is in the group
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, user_id))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, user_id))
             if not cursor.fetchone():
                 return jsonify({'message': 'Member not found in this group.'}), 404
 
-            # 3. Prevent creator from leaving unless they delete the group (creator_id is not nullable)
+            # 3. Prevent creator from leaving unless they delete the group
             if is_self and is_creator:
                 return jsonify({'message': 'As group creator, you cannot leave the group. Delete it instead.'}), 400
 
             # 4. Remove member
-            cursor.execute("DELETE FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, user_id))
+            cursor.execute("DELETE FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, user_id))
 
             log_activity(g.current_user['id'], 'GROUP_REMOVE_MEMBER', f'Removed user ID {user_id} from group {group_id}', request.remote_addr)
             optimize_settlements(group_id)
@@ -284,39 +278,35 @@ def add_group_expense(group_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # 1. Verify caller is group member
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, g.current_user['id']))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, g.current_user['id']))
             if not cursor.fetchone():
                 return jsonify({'message': 'Group not found or unauthorized.'}), 404
 
             # 2. Verify paid_by_id is member
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, paid_by_id))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, paid_by_id))
             if not cursor.fetchone():
                 return jsonify({'message': 'Payer must be a group member.'}), 400
 
             # 3. Verify category
-            cursor.execute("SELECT id FROM categories WHERE id = %s", (category_id,))
+            cursor.execute("SELECT id FROM categories WHERE id = ?", (category_id,))
             if not cursor.fetchone():
                 return jsonify({'message': 'Invalid category.'}), 400
 
             # 4. Perform Split Validations
             calculated_splits = []
             if split_method == 'equal':
-                # Equal split: divide by all splits members
-                # If splits array is empty, default to dividing among all members in group
                 if not splits:
-                    cursor.execute("SELECT user_id FROM group_members WHERE group_id = %s", (group_id,))
+                    cursor.execute("SELECT user_id FROM group_members WHERE group_id = ?", (group_id,))
                     splits = [{'user_id': row['user_id']} for row in cursor.fetchall()]
 
                 num_members = len(splits)
                 split_amount = round(amount_val / num_members, 2)
                 split_percent = round(100.0 / num_members, 2)
 
-                # Fix minor rounding sum discrepancies in final split member
                 accumulated = 0.00
                 for idx, sp in enumerate(splits):
                     u_id = sp['user_id']
-                    # Verify member is in group
-                    cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, u_id))
+                    cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, u_id))
                     if not cursor.fetchone():
                         return jsonify({'message': f'Participant ID {u_id} is not a member of the group.'}), 400
                     
@@ -332,7 +322,6 @@ def add_group_expense(group_id):
                     })
             
             elif split_method == 'custom':
-                # Custom split: explicit amounts per participant. Sum must equal total amount.
                 if not splits:
                     return jsonify({'message': 'Splits details must be provided for custom splitting.'}), 400
 
@@ -343,8 +332,7 @@ def add_group_expense(group_id):
                     if sp_amt < 0:
                         return jsonify({'message': 'Split amounts cannot be negative.'}), 400
 
-                    # Verify membership
-                    cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, u_id))
+                    cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, u_id))
                     if not cursor.fetchone():
                         return jsonify({'message': f'Participant ID {u_id} is not a member of the group.'}), 400
 
@@ -359,7 +347,6 @@ def add_group_expense(group_id):
                     return jsonify({'message': f'Split total (₹{total_split_sum:.2f}) does not match expense amount (₹{amount_val:.2f}).'}), 400
 
             elif split_method == 'percentage':
-                # Percentage split: sum of percentages must equal 100.
                 if not splits:
                     return jsonify({'message': 'Splits details must be provided for percentage splitting.'}), 400
 
@@ -371,7 +358,7 @@ def add_group_expense(group_id):
                     if pct < 0:
                         return jsonify({'message': 'Percentages cannot be negative.'}), 400
 
-                    cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, u_id))
+                    cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, u_id))
                     if not cursor.fetchone():
                         return jsonify({'message': f'Participant ID {u_id} is not a member of the group.'}), 400
 
@@ -394,16 +381,16 @@ def add_group_expense(group_id):
             # 5. Insert Group Expense
             sql = """
                 INSERT INTO group_expenses (group_id, description, amount, paid_by_id, category_id, date, split_method)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """
-            cursor.execute(sql, (group_id, description, amount_val, paid_by_id, category_id, date_val, split_method))
+            cursor.execute(sql, (group_id, description, amount_val, paid_by_id, category_id, str(date_val), split_method))
             expense_id = cursor.lastrowid
 
             # 6. Insert splits into database
             for cs in calculated_splits:
                 cursor.execute("""
                     INSERT INTO expense_splits (group_expense_id, user_id, amount, percentage)
-                    VALUES (%s, %s, %s, %s)
+                    VALUES (?, ?, ?, ?)
                 """, (expense_id, cs['user_id'], cs['amount'], cs['percentage']))
 
             # Recalculate group settlements
@@ -429,18 +416,18 @@ def delete_group_expense(group_id, expense_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # 1. Verify caller membership
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, g.current_user['id']))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, g.current_user['id']))
             if not cursor.fetchone():
                 return jsonify({'message': 'Group not found or unauthorized.'}), 404
 
             # 2. Check expense exists and belongs to group
-            cursor.execute("SELECT * FROM group_expenses WHERE id = %s AND group_id = %s", (expense_id, group_id))
+            cursor.execute("SELECT * FROM group_expenses WHERE id = ? AND group_id = ?", (expense_id, group_id))
             expense = cursor.fetchone()
             if not expense:
                 return jsonify({'message': 'Expense not found.'}), 404
 
             # 3. Delete expense (database cascading deletes splits automatically)
-            cursor.execute("DELETE FROM group_expenses WHERE id = %s", (expense_id,))
+            cursor.execute("DELETE FROM group_expenses WHERE id = ?", (expense_id,))
 
             # Recalculate remaining settlements
             optimize_settlements(group_id)
@@ -465,7 +452,7 @@ def get_group_settlements(group_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Verify membership
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, g.current_user['id']))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, g.current_user['id']))
             if not cursor.fetchone():
                 return jsonify({'message': 'Group not found or unauthorized.'}), 404
 
@@ -475,13 +462,10 @@ def get_group_settlements(group_id):
                 FROM settlements s
                 JOIN users f ON s.from_user_id = f.id
                 JOIN users t ON s.to_user_id = t.id
-                WHERE s.group_id = %s
+                WHERE s.group_id = ?
                 ORDER BY s.status DESC, s.amount DESC
             """, (group_id,))
             settlements = cursor.fetchall()
-            for s in settlements:
-                if isinstance(s['date'], datetime.date):
-                    s['date'] = s['date'].strftime('%Y-%m-%d')
             return jsonify({'settlements': settlements}), 200
     except Exception as e:
         return jsonify({'message': f'Server error: {str(e)}'}), 500
@@ -516,19 +500,19 @@ def record_settlement(group_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Verify caller membership
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, g.current_user['id']))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, g.current_user['id']))
             if not cursor.fetchone():
                 return jsonify({'message': 'Group not found or unauthorized.'}), 404
 
             # Verify settlement participants membership
-            cursor.execute("SELECT user_id FROM group_members WHERE group_id = %s AND user_id IN (%s, %s)", (group_id, from_user_id, to_user_id))
+            cursor.execute("SELECT user_id FROM group_members WHERE group_id = ? AND user_id IN (?, ?)", (group_id, from_user_id, to_user_id))
             if len(cursor.fetchall()) < 2 and from_user_id != to_user_id:
                 return jsonify({'message': 'Both participants must be members of the group.'}), 400
 
             today = datetime.date.today().strftime('%Y-%m-%d')
             cursor.execute("""
                 INSERT INTO settlements (group_id, from_user_id, to_user_id, amount, status, date)
-                VALUES (%s, %s, %s, %s, 'completed', %s)
+                VALUES (?, ?, ?, ?, 'completed', ?)
             """, (group_id, from_user_id, to_user_id, amount_val, today))
 
             # Recalculate other pending debts (incorporating this payment)
@@ -555,7 +539,7 @@ def mark_settlement_completed(settlement_id):
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Fetch settlement details
-            cursor.execute("SELECT * FROM settlements WHERE id = %s", (settlement_id,))
+            cursor.execute("SELECT * FROM settlements WHERE id = ?", (settlement_id,))
             settlement = cursor.fetchone()
             if not settlement:
                 return jsonify({'message': 'Settlement not found.'}), 404
@@ -563,12 +547,12 @@ def mark_settlement_completed(settlement_id):
             group_id = settlement['group_id']
 
             # Verify caller membership in the group
-            cursor.execute("SELECT * FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, g.current_user['id']))
+            cursor.execute("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", (group_id, g.current_user['id']))
             if not cursor.fetchone():
                 return jsonify({'message': 'Unauthorized access.'}), 403
 
             # Update status
-            cursor.execute("UPDATE settlements SET status = 'completed' WHERE id = %s", (settlement_id,))
+            cursor.execute("UPDATE settlements SET status = 'completed' WHERE id = ?", (settlement_id,))
 
             # Recalculate remaining pending debts
             optimize_settlements(group_id)

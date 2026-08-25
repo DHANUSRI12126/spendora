@@ -33,37 +33,41 @@ def get_summary():
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # 1. Total Income (All-Time)
-            cursor.execute("SELECT SUM(amount) AS total_inc FROM income WHERE user_id = %s", (g.current_user['id'],))
+            cursor.execute("SELECT SUM(amount) AS total_inc FROM income WHERE user_id = ?", (g.current_user['id'],))
             total_income = float(cursor.fetchone()['total_inc'] or 0.0)
 
             # 2. Total Expenses (All-Time)
-            cursor.execute("SELECT SUM(amount) AS total_exp FROM expenses WHERE user_id = %s", (g.current_user['id'],))
+            cursor.execute("SELECT SUM(amount) AS total_exp FROM expenses WHERE user_id = ?", (g.current_user['id'],))
             total_expenses = float(cursor.fetchone()['total_exp'] or 0.0)
 
             # 3. Income (Current Month)
             cursor.execute("""
                 SELECT SUM(amount) AS month_inc FROM income 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ?
+                  AND CAST(strftime('%m', date) AS INTEGER) = ?
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (g.current_user['id'], month, year))
             month_income = float(cursor.fetchone()['month_inc'] or 0.0)
 
             # 4. Expenses (Current Month)
             cursor.execute("""
                 SELECT SUM(amount) AS month_exp FROM expenses 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ?
+                  AND CAST(strftime('%m', date) AS INTEGER) = ?
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (g.current_user['id'], month, year))
             month_expenses = float(cursor.fetchone()['month_exp'] or 0.0)
 
             # 5. Budget (Current Month)
             cursor.execute("""
                 SELECT amount FROM budgets 
-                WHERE user_id = %s AND month = %s AND year = %s
+                WHERE user_id = ? AND month = ? AND year = ?
             """, (g.current_user['id'], month, year))
             budget_row = cursor.fetchone()
             current_budget = float(budget_row['amount']) if budget_row else 0.0
 
             # 6. Active Groups count
-            cursor.execute("SELECT COUNT(*) AS group_count FROM group_members WHERE user_id = %s", (g.current_user['id'],))
+            cursor.execute("SELECT COUNT(*) AS group_count FROM group_members WHERE user_id = ?", (g.current_user['id'],))
             active_groups = int(cursor.fetchone()['group_count'] or 0)
 
             total_balance = total_income - total_expenses
@@ -106,22 +110,22 @@ def get_category_distribution():
                 SELECT c.name AS category_name, SUM(e.amount) AS total_amount, c.id AS category_id
                 FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = %s
+                WHERE e.user_id = ?
             """
             params = [g.current_user['id']]
 
             if start_date:
-                sql += " AND e.date >= %s"
+                sql += " AND e.date >= ?"
                 params.append(start_date)
             else:
                 # default to current month start
                 now = datetime.datetime.now()
                 first_day = now.replace(day=1).strftime('%Y-%m-%d')
-                sql += " AND e.date >= %s"
+                sql += " AND e.date >= ?"
                 params.append(first_day)
 
             if end_date:
-                sql += " AND e.date <= %s"
+                sql += " AND e.date <= ?"
                 params.append(end_date)
 
             sql += " GROUP BY c.id, c.name ORDER BY total_amount DESC"
@@ -152,21 +156,21 @@ def get_monthly_trends():
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            # Monthly expenses
+            # Monthly expenses — strftime returns zero-padded string, cast to int for grouping
             cursor.execute("""
-                SELECT MONTH(date) AS mth, SUM(amount) AS amt 
+                SELECT CAST(strftime('%m', date) AS INTEGER) AS mth, SUM(amount) AS amt 
                 FROM expenses 
-                WHERE user_id = %s AND YEAR(date) = %s
-                GROUP BY MONTH(date)
+                WHERE user_id = ? AND CAST(strftime('%Y', date) AS INTEGER) = ?
+                GROUP BY CAST(strftime('%m', date) AS INTEGER)
             """, (g.current_user['id'], year))
             expenses_raw = {item['mth']: float(item['amt']) for item in cursor.fetchall()}
 
             # Monthly income
             cursor.execute("""
-                SELECT MONTH(date) AS mth, SUM(amount) AS amt 
+                SELECT CAST(strftime('%m', date) AS INTEGER) AS mth, SUM(amount) AS amt 
                 FROM income 
-                WHERE user_id = %s AND YEAR(date) = %s
-                GROUP BY MONTH(date)
+                WHERE user_id = ? AND CAST(strftime('%Y', date) AS INTEGER) = ?
+                GROUP BY CAST(strftime('%m', date) AS INTEGER)
             """, (g.current_user['id'], year))
             income_raw = {item['mth']: float(item['amt']) for item in cursor.fetchall()}
 
@@ -199,11 +203,9 @@ def get_notifications():
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM notifications WHERE user_id = %s ORDER BY created_at DESC", (g.current_user['id'],))
+            cursor.execute("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC", (g.current_user['id'],))
             notifs = cursor.fetchall()
-            for n in notifs:
-                if n['created_at']:
-                    n['created_at'] = n['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+            # SQLite returns created_at as a string already — no .strftime() needed
             return jsonify({'notifications': notifs}), 200
     except Exception as e:
         return jsonify({'message': f'Server error: {str(e)}'}), 500
@@ -218,7 +220,7 @@ def read_all_notifications():
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            cursor.execute("UPDATE notifications SET is_read = TRUE WHERE user_id = %s", (g.current_user['id'],))
+            cursor.execute("UPDATE notifications SET is_read = 1 WHERE user_id = ?", (g.current_user['id'],))
             return jsonify({'message': 'All notifications marked as read.'}), 200
     except Exception as e:
         return jsonify({'message': f'Server error: {str(e)}'}), 500
@@ -233,7 +235,7 @@ def read_single_notification(notif_id):
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            cursor.execute("UPDATE notifications SET is_read = TRUE WHERE id = %s AND user_id = %s", (notif_id, g.current_user['id']))
+            cursor.execute("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?", (notif_id, g.current_user['id']))
             return jsonify({'message': 'Notification marked as read.'}), 200
     except Exception as e:
         return jsonify({'message': f'Server error: {str(e)}'}), 500
@@ -270,7 +272,7 @@ def export_pdf():
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Get user info
-            cursor.execute("SELECT full_name, email FROM users WHERE id = %s", (g.current_user['id'],))
+            cursor.execute("SELECT full_name, email FROM users WHERE id = ?", (g.current_user['id'],))
             user_row = cursor.fetchone()
             user_info = {
                 'name': user_row['full_name'] if user_row and user_row.get('full_name') else g.current_user.get('full_name', g.current_user.get('name', 'User')),
@@ -280,21 +282,25 @@ def export_pdf():
             # Income for month
             cursor.execute("""
                 SELECT SUM(amount) AS total FROM income 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ?
+                  AND CAST(strftime('%m', date) AS INTEGER) = ?
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (g.current_user['id'], month, year))
             total_income = float(cursor.fetchone()['total'] or 0.0)
 
             # Expenses for month
             cursor.execute("""
                 SELECT SUM(amount) AS total FROM expenses 
-                WHERE user_id = %s AND MONTH(date) = %s AND YEAR(date) = %s
+                WHERE user_id = ?
+                  AND CAST(strftime('%m', date) AS INTEGER) = ?
+                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
             """, (g.current_user['id'], month, year))
             total_expenses = float(cursor.fetchone()['total'] or 0.0)
 
             # Budget for month
             cursor.execute("""
                 SELECT amount FROM budgets 
-                WHERE user_id = %s AND month = %s AND year = %s
+                WHERE user_id = ? AND month = ? AND year = ?
             """, (g.current_user['id'], month, year))
             budget_row = cursor.fetchone()
             budget_amount = float(budget_row['amount']) if budget_row else 0.0
@@ -304,7 +310,9 @@ def export_pdf():
                 SELECT c.name AS category_name, SUM(e.amount) AS total_amount, COUNT(e.id) AS tx_count
                 FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = %s AND MONTH(e.date) = %s AND YEAR(e.date) = %s
+                WHERE e.user_id = ?
+                  AND CAST(strftime('%m', e.date) AS INTEGER) = ?
+                  AND CAST(strftime('%Y', e.date) AS INTEGER) = ?
                 GROUP BY c.id, c.name
                 ORDER BY total_amount DESC
             """, (g.current_user['id'], month, year))
@@ -326,17 +334,17 @@ def export_pdf():
                 SELECT e.id, e.date, e.description, e.amount, e.payment_method, c.name AS category_name
                 FROM expenses e
                 JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = %s AND MONTH(e.date) = %s AND YEAR(e.date) = %s
+                WHERE e.user_id = ?
+                  AND CAST(strftime('%m', e.date) AS INTEGER) = ?
+                  AND CAST(strftime('%Y', e.date) AS INTEGER) = ?
                 ORDER BY e.date ASC, e.id ASC
             """, (g.current_user['id'], month, year))
             expense_items = cursor.fetchall()
 
             for item in expense_items:
                 item['amount'] = float(item['amount'])
-                if isinstance(item['date'], (datetime.date, datetime.datetime)):
-                    item['date_str'] = item['date'].strftime('%Y-%m-%d')
-                else:
-                    item['date_str'] = str(item['date'])
+                # SQLite date is already a string, just rename it
+                item['date_str'] = item['date']
 
 
         # Now construct the PDF with ReportLab
@@ -558,5 +566,3 @@ def export_pdf():
     finally:
         if connection:
             connection.close()
-
-

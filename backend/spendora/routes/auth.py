@@ -37,7 +37,7 @@ def register():
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check for duplicate email
-            cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+            cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
             if cursor.fetchone():
                 return jsonify({'message': 'Email is already registered.'}), 400
 
@@ -48,7 +48,7 @@ def register():
             # Insert user
             sql = """
                 INSERT INTO users (full_name, email, password_hash, role, status)
-                VALUES (%s, %s, %s, %s, 'active')
+                VALUES (?, ?, ?, ?, 'active')
             """
             cursor.execute(sql, (full_name, email, password_hash, role))
             user_id = cursor.lastrowid
@@ -84,7 +84,7 @@ def login():
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+            cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
             user = cursor.fetchone()
 
             if not user:
@@ -132,7 +132,7 @@ def me():
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            cursor.execute("SELECT id, full_name, email, role, status, created_at FROM users WHERE id = %s", (g.current_user['id'],))
+            cursor.execute("SELECT id, full_name, email, role, status, created_at FROM users WHERE id = ?", (g.current_user['id'],))
             user = cursor.fetchone()
             if not user:
                 return jsonify({'message': 'User not found.'}), 404
@@ -163,10 +163,10 @@ def update_profile():
                 salt = bcrypt.gensalt(rounds=12)
                 password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
                 
-                sql = "UPDATE users SET full_name = %s, password_hash = %s WHERE id = %s"
+                sql = "UPDATE users SET full_name = ?, password_hash = ? WHERE id = ?"
                 cursor.execute(sql, (full_name, password_hash, g.current_user['id']))
             else:
-                sql = "UPDATE users SET full_name = %s WHERE id = %s"
+                sql = "UPDATE users SET full_name = ? WHERE id = ?"
                 cursor.execute(sql, (full_name, g.current_user['id']))
 
             log_activity(g.current_user['id'], 'PROFILE_UPDATE', 'User updated profile details', request.remote_addr)
@@ -196,7 +196,7 @@ def forgot_password():
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            cursor.execute("SELECT id, full_name FROM users WHERE email = %s", (email,))
+            cursor.execute("SELECT id, full_name FROM users WHERE email = ?", (email,))
             user = cursor.fetchone()
 
             if not user:
@@ -250,7 +250,7 @@ def reset_password():
             salt = bcrypt.gensalt(rounds=12)
             password_hash = bcrypt.hashpw(new_password.encode('utf-8'), salt).decode('utf-8')
 
-            cursor.execute("UPDATE users SET password_hash = %s WHERE email = %s", (password_hash, email))
+            cursor.execute("UPDATE users SET password_hash = ? WHERE email = ?", (password_hash, email))
             
             # Clear reset code
             RESET_CODES.pop(email, None)
@@ -263,5 +263,3 @@ def reset_password():
     finally:
         if connection:
             connection.close()
-
-

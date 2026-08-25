@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Use the separately deployed backend in production; override it with VITE_API_URL when needed.
+// Use the same-origin API in production; override it for a separately hosted backend.
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({

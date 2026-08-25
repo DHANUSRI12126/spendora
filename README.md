@@ -62,28 +62,12 @@ Spendora/
 Ensure you have the following installed:
 *   [Node.js](https://nodejs.org/) (v18 or higher)
 *   [Python](https://www.python.org/) (v3.9 or higher)
-*   [MySQL Server](https://dev.mysql.com/downloads/mysql/) (v8.0 or higher)
 
 ---
 
 ## Setup & Installation
 
-### 1. MySQL Database Setup
-
-Log in to your MySQL terminal and run the following commands to initialize the schema and populate development seed logs:
-
-```bash
-# Create database
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS spendora;"
-
-# Import Schema
-mysql -u root -p spendora < database/schema.sql
-
-# Seed development mock data
-mysql -u root -p spendora < database/seed.sql
-```
-
-### 2. Backend Configuration
+### 1. Backend Configuration
 
 Navigate to the `backend/` directory, create your local configuration from the template, and install packages:
 
@@ -95,9 +79,12 @@ copy .env.example .env
 
 # Install requirements
 pip install -r requirements.txt
+
+# Start backend (auto-creates and initializes spendora.db SQLite database)
+python app.py
 ```
 
-Open `.env` in a text editor and adjust MySQL parameters if necessary (e.g. `MYSQL_PASSWORD`, `MYSQL_USER`). Add a `GEMINI_API_KEY` to enable AI features (or leave it empty/default to engage the local rule-based fallback).
+Add a `GEMINI_API_KEY` in `.env` to enable Gemini AI features (or leave it empty to engage the local rule-based fallback).
 
 ### 3. Frontend Configuration
 

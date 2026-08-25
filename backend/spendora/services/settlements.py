@@ -13,7 +13,7 @@ def calculate_group_balances(group_id):
     try:
         with connection.cursor() as cursor:
             # Get all members of the group
-            cursor.execute("SELECT user_id FROM group_members WHERE group_id = %s", (group_id,))
+            cursor.execute("SELECT user_id FROM group_members WHERE group_id = ?", (group_id,))
             members = [m['user_id'] for m in cursor.fetchall()]
             
             # Initialize balances to 0
@@ -24,7 +24,7 @@ def calculate_group_balances(group_id):
             cursor.execute("""
                 SELECT paid_by_id, SUM(amount) as total_paid 
                 FROM group_expenses 
-                WHERE group_id = %s 
+                WHERE group_id = ? 
                 GROUP BY paid_by_id
             """, (group_id,))
             for row in cursor.fetchall():
@@ -37,7 +37,7 @@ def calculate_group_balances(group_id):
                 SELECT es.user_id, SUM(es.amount) as total_owed 
                 FROM expense_splits es
                 JOIN group_expenses ge ON es.group_expense_id = ge.id
-                WHERE ge.group_id = %s
+                WHERE ge.group_id = ?
                 GROUP BY es.user_id
             """, (group_id,))
             for row in cursor.fetchall():
@@ -51,7 +51,7 @@ def calculate_group_balances(group_id):
             cursor.execute("""
                 SELECT from_user_id, to_user_id, SUM(amount) as total_settled 
                 FROM settlements 
-                WHERE group_id = %s AND status = 'completed'
+                WHERE group_id = ? AND status = 'completed'
                 GROUP BY from_user_id, to_user_id
             """, (group_id,))
             for row in cursor.fetchall():
@@ -129,7 +129,7 @@ def optimize_settlements(group_id):
             # 1. Clear existing pending settlements for the group
             cursor.execute("""
                 DELETE FROM settlements 
-                WHERE group_id = %s AND status = 'pending'
+                WHERE group_id = ? AND status = 'pending'
             """, (group_id,))
 
             # 2. Insert new pending settlements
@@ -137,7 +137,7 @@ def optimize_settlements(group_id):
             for s in proposed_settlements:
                 cursor.execute("""
                     INSERT INTO settlements (group_id, from_user_id, to_user_id, amount, status, date)
-                    VALUES (%s, %s, %s, %s, 'pending', %s)
+                    VALUES (?, ?, ?, ?, 'pending', ?)
                 """, (group_id, s['from_user_id'], s['to_user_id'], s['amount'], today))
         return proposed_settlements
     finally:

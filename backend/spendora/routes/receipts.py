@@ -44,7 +44,7 @@ def resolve_category(cat_name, user_id):
             # 1. Exact case-insensitive match
             cursor.execute("""
                 SELECT id, name FROM categories 
-                WHERE LOWER(name) = %s AND type = 'expense' AND (is_system = TRUE OR user_id = %s)
+                WHERE LOWER(name) = ? AND type = 'expense' AND (is_system = 1 OR user_id = ?)
                 LIMIT 1
             """, (cat_name.strip().lower(), user_id))
             row = cursor.fetchone()
@@ -54,7 +54,7 @@ def resolve_category(cat_name, user_id):
             # 2. Substring matching against existing user/system categories
             cursor.execute("""
                 SELECT id, name FROM categories 
-                WHERE type = 'expense' AND (is_system = TRUE OR user_id = %s)
+                WHERE type = 'expense' AND (is_system = 1 OR user_id = ?)
             """, (user_id,))
             rows = cursor.fetchall()
             for r in rows:

@@ -10,7 +10,7 @@ def create_notification(user_id, title, message, notif_type='general'):
         with connection.cursor() as cursor:
             sql = """
                 INSERT INTO notifications (user_id, title, message, type, is_read)
-                VALUES (%s, %s, %s, %s, FALSE)
+                VALUES (?, ?, ?, ?, 0)
             """
             cursor.execute(sql, (user_id, title, message, notif_type))
     except Exception as e:
