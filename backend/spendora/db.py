@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 import pymysql
 import pymysql.cursors
 from dotenv import load_dotenv
@@ -13,14 +14,34 @@ def get_db_connection():
     Uses DictCursor to automatically format records as dictionary rows.
     """
     try:
+        database_url = os.getenv('MYSQL_URL')
+        if database_url:
+            parsed_url = urlparse(database_url)
+            host = parsed_url.hostname
+            port = parsed_url.port or 3306
+            user = parsed_url.username
+            password = parsed_url.password
+            database = parsed_url.path.lstrip('/')
+        else:
+            host = os.getenv('MYSQL_HOST', 'localhost')
+            port = int(os.getenv('MYSQL_PORT', 3306))
+            user = os.getenv('MYSQL_USER', 'root')
+            password = os.getenv('MYSQL_PASSWORD', '')
+            database = os.getenv('MYSQL_DB', 'spendora')
+
+        connection_options = {}
+        if os.getenv('MYSQL_SSL', '').lower() in ('1', 'true', 'yes', 'on'):
+            connection_options['ssl'] = {'check_hostname': False}
+
         connection = pymysql.connect(
-            host=os.getenv('MYSQL_HOST', 'localhost'),
-            port=int(os.getenv('MYSQL_PORT', 3306)),
-            user=os.getenv('MYSQL_USER', 'root'),
-            password=os.getenv('MYSQL_PASSWORD', ''),
-            database=os.getenv('MYSQL_DB', 'spendora'),
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database,
             cursorclass=pymysql.cursors.DictCursor,
-            autocommit=True
+            autocommit=True,
+            **connection_options
         )
         return connection
     except Exception as e:

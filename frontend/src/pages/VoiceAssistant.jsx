@@ -4,7 +4,7 @@ import { Mic } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 const VoiceAssistant = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>

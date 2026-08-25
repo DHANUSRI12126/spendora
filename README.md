@@ -136,6 +136,18 @@ npm run dev
 
 Open your browser to `http://localhost:5173`.
 
+## Deploy to Vercel
+
+This repository is configured as a single Vercel project. The React frontend is built from `frontend/`, and Flask API requests under `/api/*` run through `api/index.py`.
+
+1. Push the repository to GitHub and import it into Vercel with the repository root as the project root.
+2. Add these Production environment variables in Vercel: `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DB`, `JWT_SECRET`, and `GEMINI_API_KEY`.
+3. Set `FRONTEND_URL` to the deployed Vercel URL. The frontend uses the same-origin `/api` path by default.
+4. Use a hosted MySQL database. A local `MYSQL_HOST=localhost` is not reachable from Vercel.
+5. After deployment, verify the API at `/health` and then test registration and login.
+
+Never commit `.env` or `backend/.env`; use Vercel's environment variable settings for production secrets.
+
 ---
 
 ## Default Login Credentials
