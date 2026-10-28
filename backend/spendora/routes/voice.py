@@ -294,24 +294,5 @@ def process_voice_command():
         'entities': entities,
         'message': response_message,
         'language': language
-    }), 200ched_category} செலவாக சேர்க்க விரும்புகிறீர்களா?"
-        elif language == 'te':
-            response_message = f"మీరు ₹{amount:,.2f} ను {matched_category} ఖర్చుగా జోడించాలనుకుంటున్నారా?"
-        elif language == 'hi':
-            response_message = f"क्या आप ₹{amount:,.2f} को {matched_category} खर्च के रूप में जोड़ना चाहते हैं?"
-        elif language == 'es':
-            response_message = f"¿Deseas agregar ₹{amount:,.2f} como gasto de {matched_category}?"
-        else:
-            response_message = f"Do you want to add ₹{amount:,.2f} as a {matched_category} expense?"
-
-    else:
-        # Pass to multi-language chat_with_ai
-        intent = 'QUERY_FINANCES'
-        response_message = chat_with_ai(g.current_user['id'], text, language=language)
-
-    return jsonify({
-        'intent': intent,
-        'entities': entities,
-        'message': response_message
     }), 200
 
