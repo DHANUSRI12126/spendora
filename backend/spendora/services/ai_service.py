@@ -6,7 +6,6 @@ from google import genai
 from google.genai.errors import APIError
 from dotenv import load_dotenv
 
-load_dotenv()
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
@@ -83,95 +82,133 @@ def rule_based_spending_analysis(user_id, language='en'):
         recommendations = []
         suggestions = []
 
-        if language == 'ta':
-            if monthly_budget > 0:
-                percent = (month_expenses / monthly_budget) * 100
-                insights.append(f"உங்கள் மாதாந்திர பட்ஜெட்டில் {percent:.1f}% செலவிட்டுள்ளீர்கள் (₹{monthly_budget:,.2f} பட்ஜெட்டில் ₹{month_expenses:,.2f} செலவிடப்பட்டுள்ளது).")
-                if percent >= 100:
-                    recommendations.append("உங்கள் பட்ஜெட் வரம்பு மீறிவிட்டது! அத்தியாவசியமற்ற செலவுகளை உடனடியாகக் குறைக்கவும்.")
-                elif percent >= 85:
-                    recommendations.append("நீங்கள் பட்ஜெட் வரம்பை நெருங்குகிறீர்கள். செலவுகளைக் கட்டுப்படுத்தவும்.")
-                else:
-                    recommendations.append("நன்று! நீங்கள் பட்ஜெட் வரம்பிற்குள் இருக்கிறீர்கள்.")
+        localized = {
+            'en': {
+                'budget': "You have used {percent:.1f}% of your monthly budget (₹{spent:,.2f} of ₹{budget:,.2f}).",
+                'over': "Your budget has been exceeded. Reduce non-essential spending.",
+                'near': "You are nearing your budget limit. Keep spending in check.",
+                'within': "Good work! You are within your budget.",
+                'no_budget': "No budget is set for this month.",
+                'set_budget': "Set a monthly budget to keep spending on track.",
+                'category': "Your highest spending category this month is '{category}' (₹{amount:,.2f}).",
+                'no_expenses': "No expenses have been recorded this month.",
+                'reduce_category': "Review your spending in '{category}' to find savings.",
+                'savings': "You saved {percent:.1f}% of your income this month.",
+                'great_savings': "Great savings rate! You saved {percent:.1f}% of your income.",
+                'overspent': "You spent more than you earned this month. Review non-essential purchases.",
+                'no_income': "Record your income to calculate your monthly savings rate.",
+                'save_tip': "Set aside 10% of your earnings on payday.",
+                'track_tip': "Track small daily expenses, which can add up over the month.",
+            },
+            'ta': {
+                'budget': "உங்கள் மாதாந்திர பட்ஜெட்டில் {percent:.1f}% செலவிட்டுள்ளீர்கள் (₹{budget:,.2f} இல் ₹{spent:,.2f}).",
+                'over': "பட்ஜெட் வரம்பு மீறப்பட்டுள்ளது. தேவையற்ற செலவுகளைக் குறைக்கவும்.",
+                'near': "பட்ஜெட் வரம்பை நெருங்குகிறீர்கள். செலவுகளைக் கட்டுப்படுத்தவும்.",
+                'within': "நன்று! நீங்கள் பட்ஜெட் வரம்பிற்குள் இருக்கிறீர்கள்.",
+                'no_budget': "இந்த மாதத்திற்கு பட்ஜெட் அமைக்கப்படவில்லை.",
+                'set_budget': "செலவைக் கட்டுப்படுத்த மாதாந்திர பட்ஜெட் அமைக்கவும்.",
+                'category': "இந்த மாதத்தில் அதிக செலவான பிரிவு '{category}' (₹{amount:,.2f}).",
+                'no_expenses': "இந்த மாதத்தில் செலவுகள் எதுவும் பதிவு செய்யப்படவில்லை.",
+                'reduce_category': "'{category}' செலவுகளைக் குறைக்க முயற்சிக்கவும்.",
+                'savings': "இந்த மாதம் உங்கள் வருமானத்தில் {percent:.1f}% சேமித்துள்ளீர்கள்.",
+                'great_savings': "சிறந்த சேமிப்பு விகிதம்! உங்கள் வருமானத்தில் {percent:.1f}% சேமித்துள்ளீர்கள்.",
+                'overspent': "இந்த மாதம் வருமானத்தை விட அதிகமாக செலவு செய்துள்ளீர்கள். செலவுகளை ஆய்வு செய்யவும்.",
+                'no_income': "சேமிப்பு விகிதத்தைக் கணக்கிட உங்கள் வருமானத்தைப் பதிவு செய்யவும்.",
+                'save_tip': "சம்பள நாளில் உங்கள் வருமானத்தில் 10% சேமிக்கவும்.",
+                'track_tip': "மாதாந்திரமாக அதிகரிக்கக்கூடிய சிறிய தினசரி செலவுகளைக் கண்காணிக்கவும்.",
+            },
+            'te': {
+                'budget': "మీ నెలవారీ బడ్జెట్‌లో {percent:.1f}% ఖర్చు చేశారు (₹{budget:,.2f}లో ₹{spent:,.2f}).",
+                'over': "మీ బడ్జెట్ పరిమితి దాటింది. అనవసర ఖర్చులను తగ్గించండి.",
+                'near': "మీరు బడ్జెట్ పరిమితికి చేరుకుంటున్నారు. ఖర్చులను నియంత్రించండి.",
+                'within': "బాగుంది! మీరు బడ్జెట్ పరిమితిలోనే ఉన్నారు.",
+                'no_budget': "இந்த மாதத்திற்கு பட்ஜெட் அமைக்கப்படவில்லை.",
+                'set_budget': "செலவைக் கட்டுப்படுத்த மாதாந்திர பட்ஜெட் அமைக்கவும்.",
+                'category': "இந்த மாதத்தில் அதிக செலவான பிரிவு '{category}' (₹{amount:,.2f}).",
+                'no_expenses': "இந்த மாதத்தில் செலவுகள் எதுவும் பதிவு செய்யப்படவில்லை.",
+                'reduce_category': "'{category}' செலவுகளைக் குறைக்க முயற்சிக்கவும்.",
+                'savings': "இந்த மாதம் உங்கள் ஆதாயத்தில் {percent:.1f}% சேமித்துள்ளீர்கள்.",
+                'great_savings': "சிறந்த சேமிப்பு விகிதம்! உங்கள் ஆதாயத்தில் {percent:.1f}% சேமித்துள்ளீர்கள்.",
+                'overspent': "இந்த மாதம் வருமானத்தை விட அதிகமாக செலவு செய்துள்ளீர்கள். செலவுகளை ஆய்வு செய்யவும்.",
+                'no_income': "சேமிப்பு விகிதத்தைக் கணக்கிட உங்கள் வருமானத்தைப் பதிவு செய்யவும்.",
+                'save_tip': "ஜీతం రోజున మీ ఆదాయంలో 10% పొదుపు చేయండి.",
+                'track_tip': "నెలంతా పెరిగే చిన్న రోజువారీ ఖర్చులను గమనించండి.",
+            },
+            'hi': {
+                'budget': "आपने अपने मासिक बजट का {percent:.1f}% खर्च किया है (₹{budget:,.2f} में से ₹{spent:,.2f}).",
+                'over': "आपका बजट पार हो गया है। गैर-ज़रूरी खर्च कम करें।",
+                'near': "आप बजट सीमा के करीब हैं। खर्च पर नियंत्रण रखें।",
+                'within': "बढ़िया! आप बजट सीमा के भीतर हैं।",
+                'no_budget': "इस महीने के लिए कोई बजट निर्धारित नहीं है।",
+                'set_budget': "खर्च नियंत्रित करने के लिए मासिक बजट तय करें।",
+                'category': "इस महीने सबसे अधिक खर्च वाली श्रेणी '{category}' है (₹{amount:,.2f}।",
+                'no_expenses': "इस महीने कोई खर्च दर्ज नहीं किया गया है।",
+                'reduce_category': "'{category}' के खर्चों को कम करने के तरीके देखें।",
+                'savings': "इस महीने आपने अपनी आय का {percent:.1f}% बचाया।",
+                'great_savings': "बचत की अच्छी दर! आपने अपनी आय का {percent:.1f}% बचाया।",
+                'overspent': "इस महीने आपने कमाई से अधिक खर्च किया। गैर-ज़रूरी खर्चों की समीक्षा करें।",
+                'no_income': "बचत दर जानने के लिए अपनी आय दर्ज करें।",
+                'save_tip': "वेतन के दिन अपनी आय का 10% बचत खाते में रखें।",
+                'track_tip': "छोटे दैनिक खर्चों को ट्रैक करें, जो महीने में बढ़ सकते हैं।",
+            },
+            'es': {
+                'budget': "Has usado el {percent:.1f}% de tu presupuesto mensual (₹{spent:,.2f} de ₹{budget:,.2f}).",
+                'over': "Has superado tu presupuesto. Reduce los gastos no esenciales.",
+                'near': "Estás cerca del límite de tu presupuesto. Controla tus gastos.",
+                'within': "¡Bien hecho! Estás dentro de tu presupuesto.",
+                'no_budget': "No has establecido un presupuesto para este mes.",
+                'set_budget': "Establece un presupuesto mensual para controlar tus gastos.",
+                'category': "Tu categoría con más gastos este mes es '{category}' (₹{amount:,.2f}).",
+                'no_expenses': "No se han registrado gastos este mes.",
+                'reduce_category': "Revisa los gastos de '{category}' para ahorrar.",
+                'savings': "Has ahorrado el {percent:.1f}% de tus ingresos este mes.",
+                'great_savings': "¡Excelente ahorro! Has guardado el {percent:.1f}% de tus ingresos.",
+                'overspent': "Este mes gastaste más de lo que ganaste. Revisa los gastos no esenciales.",
+                'no_income': "Registra tus ingresos para calcular tu tasa de ahorro mensual.",
+                'save_tip': "Ahorra el 10% de tus ingresos el día de pago.",
+                'track_tip': "Controla los pequeños gastos diarios, que se acumulan durante el mes.",
+            },
+        }
+        messages = localized.get(language, localized['en'])
+
+        if monthly_budget > 0:
+            percent = (month_expenses / monthly_budget) * 100
+            insights.append(messages['budget'].format(
+                percent=percent, spent=month_expenses, budget=monthly_budget
+            ))
+            if percent >= 100:
+                recommendations.append(messages['over'])
+            elif percent >= 85:
+                recommendations.append(messages['near'])
             else:
-                insights.append("இந்த மாதத்திற்கு பட்ஜெட் எதுவும் அமைக்கப்படவில்லை. பட்ஜெட் அமைப்பது செலவைக் கட்டுப்படுத்த உதவும்.")
-                recommendations.append("மாதாந்திர பட்ஜெட் வரம்பை அமைக்க பட்ஜெட்டுகள் பக்கத்திற்குச் செல்லவும்.")
+                recommendations.append(messages['within'])
+        else:
+            insights.append(messages['no_budget'])
+            recommendations.append(messages['set_budget'])
 
-            if cat_breakdown:
-                highest_cat = cat_breakdown[0]['name']
-                highest_amt = float(cat_breakdown[0]['amt'])
-                insights.append(f"இந்த மாதத்தில் அதிக செலவான பிரிவு '{highest_cat}' (₹{highest_amt:,.2f}).")
-                suggestions.append(f"'{highest_cat}' செலவுகளைக் குறைக்க தள்ளுபடிகள் மற்றும் திட்டமிடுதலைப் பயன்படுத்தவும்.")
+        if cat_breakdown:
+            highest_cat = cat_breakdown[0]['name']
+            highest_amt = float(cat_breakdown[0]['amt'])
+            insights.append(messages['category'].format(
+                category=highest_cat, amount=highest_amt
+            ))
+            suggestions.append(messages['reduce_category'].format(category=highest_cat))
+        else:
+            insights.append(messages['no_expenses'])
+
+        if month_income > 0:
+            savings_pct = ((month_income - month_expenses) / month_income) * 100
+            if savings_pct > 20:
+                suggestions.append(messages['great_savings'].format(percent=savings_pct))
+            elif savings_pct > 0:
+                suggestions.append(messages['savings'].format(percent=savings_pct))
             else:
-                insights.append("இந்த மாதத்தில் இன்னும் செலவுகள் எதுவும் பதிவு செய்யப்படவில்லை.")
+                suggestions.append(messages['overspent'])
+        else:
+            suggestions.append(messages['no_income'])
 
-            if month_income > 0:
-                savings_pct = ((month_income - month_expenses) / month_income) * 100
-                if savings_pct > 20:
-                    suggestions.append(f"சிறந்த சேமிப்பு விகிதம்! இந்த மாத வருமானத்தில் {savings_pct:.1f}% சேமித்துள்ளீர்கள்.")
-                elif savings_pct > 0:
-                    suggestions.append(f"உங்கள் வருமானத்தில் {savings_pct:.1f}% சேமித்துள்ளீர்கள். 20% சேமிப்பைக் குறிவையுங்கள்.")
-                else:
-                    suggestions.append("இந்த மாதம் வருமானத்தை விட அதிகமாக செலவு செய்துள்ளீர்கள். செலவுகளை ஆய்வு செய்யவும்.")
-            suggestions.append("சம்பள நாளில் 10% தொகையை சேமிப்புக் கணக்கில் தனியாக வைக்கவும்.")
-            suggestions.append("தினசரி சிறு செலவுகளைக் கண்காணிக்கவும்.")
-
-        elif language == 'te':
-            if monthly_budget > 0:
-                percent = (month_expenses / monthly_budget) * 100
-                insights.append(f"మీరు మీ నెలవారీ బడ్జెట్‌లో {percent:.1f}% ఖర్చు చేశారు (₹{monthly_budget:,.2f} బడ్జెట్‌లో ₹{month_expenses:,.2f} ఖర్చు అయింది).")
-                if percent >= 100:
-                    recommendations.append("మీ బడ్జెట్ పరిమితి దాటింది! అనవసర ఖర్చులను తగ్గించండి.")
-                elif percent >= 85:
-                    recommendations.append("మీరు బడ్జెట్ పరిమితికి చేరుకుంటున్నారు. నియంత్రణ పాటించండి.")
-                else:
-                    recommendations.append("బాగుంది! మీరు ప్రస్తుతం బడ్జెట్ పరిమితిలోనే ఉన్నారు.")
-            else:
-                insights.append("ఈ నెలకు ఎటువంటి బడ్జెట్ సెట్ చేయబడలేదు.")
-                recommendations.append("బడ్జెట్ పరిమితిని రూపొందించడానికి బడ్జెట్ల పేజీకి వెళ్లండి.")
-
-            if cat_breakdown:
-                highest_cat = cat_breakdown[0]['name']
-                highest_amt = float(cat_breakdown[0]['amt'])
-                insights.append(f"ఈ నెలలో అత్యధిక ఖర్చు వర్గం '{highest_cat}' (₹{highest_amt:,.2f}).")
-                suggestions.append(f"'{highest_cat}' ఖర్చులను తగ్గించడానికి ప్రయత్నించండి.")
-            else:
-                insights.append("ఈ నెలకు ఖర్చులు నమోదు కాలేదు.")
-
-            if month_income > 0:
-                savings_pct = ((month_income - month_expenses) / month_income) * 100
-                if savings_pct > 20:
-                    suggestions.append(f"అద్భుతమైన పొదుపు శాతం! మీరు మీ ఆదాయంలో {savings_pct:.1f}% పొదుపు చేశారు.")
-                elif savings_pct > 0:
-                    suggestions.append(f"మీరు మీ ఆదాయంలో {savings_pct:.1f}% పొదుపు చేశారు.")
-                else:
-                    suggestions.append("మీరు ఈ నెల సంపాదన కంటే ఎక్కువ ఖర్చు చేశారు.")
-            suggestions.append("జీతం రోజున 10% మొత్తాన్ని ప్రత్యేక పొదుపు ఖాతాలో ఉంచండి.")
-
-        elif language == 'hi':
-            if monthly_budget > 0:
-                percent = (month_expenses / monthly_budget) * 100
-                insights.append(f"आपने अपने मासिक बजट का {percent:.1f}% खर्च किया है (₹{monthly_budget:,.2f} बजट में से ₹{month_expenses:,.2f} खर्च)।")
-                if percent >= 100:
-                    recommendations.append("आपका बजट पार हो गया है! अनावश्यक खर्चों को तुरंत रोकें।")
-                else:
-                    recommendations.append("बढ़िया! आप वर्तमान में बजट सीमा के भीतर हैं।")
-            else:
-                insights.append("इस महीने के लिए कोई बजट निर्धारित नहीं है।")
-
-            if cat_breakdown:
-                highest_cat = cat_breakdown[0]['name']
-                highest_amt = float(cat_breakdown[0]['amt'])
-                insights.append(f"इस महीने आपका उच्चतम खर्च श्रेणी '{highest_cat}' है (₹{highest_amt:,.2f})।")
-            suggestions.append("वेतन दिवस पर अपनी कमाई का 10% अलग बचत खाते में रखें।")
-
-                      else:
-                    suggestions.append("You spent more than you earned this month. Review your purchases and cut non-essentials.")
-            else:
-                suggestions.append("Record your monthly salary or other income sources to calculate your monthly savings rate.")
-
-            suggestions.append("Set aside 10% of your earnings automatically on salary day to a separate savings account.")
-            suggestions.append("Track small daily expenses, as micro-spending on snacks or rides can add up to large monthly sums.")
+        suggestions.append(messages['save_tip'])
+        suggestions.append(messages['track_tip'])
 
         return {
             'insights': insights,
@@ -238,384 +275,90 @@ def month_expenses_helper(user_id, month, year):
 
 
 def rule_based_chat(user_id, query, language='en'):
-    """
-    Multi-language intelligent rule-based query parser and responder.
-    Responds in the user's selected language (Tamil, Telugu, Hindi, Spanish, English).
-    Automatically detects language from input if query is in regional script or transliterated Tanglish.
-    """
+    """Answer common financial questions from the user's saved transactions."""
     from spendora.routes.voice import CATEGORY_MAP, detect_language
-    
-    query_lower = query.lower().strip()
 
-    # Automatically detect language from the query if language is default 'en'
+    query_lower = query.lower().strip()
     detected = detect_language(query, fallback_lang=language)
     if language == 'en' and detected != 'en':
         language = detected
 
     now = datetime.datetime.now()
-    month = now.month
-    year = now.year
-
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            # Monthly totals
-            cursor.execute("""
-                SELECT SUM(amount) AS amt FROM income 
-                WHERE user_id = ? 
-                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
-                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
-            """, (user_id, month, year))
-            m_inc = float(cursor.fetchone()['amt'] or 0.0)
+            cursor.execute(
+                "SELECT COALESCE(SUM(amount), 0) AS total FROM income "
+                "WHERE user_id = ? AND CAST(strftime('%m', date) AS INTEGER) = ? "
+                "AND CAST(strftime('%Y', date) AS INTEGER) = ?",
+                (user_id, now.month, now.year),
+            )
+            monthly_income = float(cursor.fetchone()['total'] or 0)
 
-            cursor.execute("""
-                SELECT SUM(amount) AS amt FROM expenses 
-                WHERE user_id = ? 
-                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
-                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
-            """, (user_id, month, year))
-            m_exp = float(cursor.fetchone()['amt'] or 0.0)
+            cursor.execute(
+                "SELECT COALESCE(SUM(amount), 0) AS total FROM expenses "
+                "WHERE user_id = ? AND CAST(strftime('%m', date) AS INTEGER) = ? "
+                "AND CAST(strftime('%Y', date) AS INTEGER) = ?",
+                (user_id, now.month, now.year),
+            )
+            monthly_expenses = float(cursor.fetchone()['total'] or 0)
 
-            # Overall totals
-            cursor.execute("SELECT SUM(amount) AS total_inc FROM income WHERE user_id = ?", (user_id,))
-            t_inc = float(cursor.fetchone()['total_inc'] or 0.0)
+            cursor.execute("SELECT COALESCE(SUM(amount), 0) AS total FROM income WHERE user_id = ?", (user_id,))
+            total_income = float(cursor.fetchone()['total'] or 0)
+            cursor.execute("SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE user_id = ?", (user_id,))
+            total_expenses = float(cursor.fetchone()['total'] or 0)
 
-            cursor.execute("SELECT SUM(amount) AS total_exp FROM expenses WHERE user_id = ?", (user_id,))
-            t_exp = float(cursor.fetchone()['total_exp'] or 0.0)
-
-            bal = t_inc - t_exp
-
-            # Monthly budget
-            cursor.execute("""
-                SELECT amount FROM budgets 
-                WHERE user_id = ? AND month = ? AND year = ?
-            """, (user_id, month, year))
+            cursor.execute(
+                "SELECT amount FROM budgets WHERE user_id = ? AND month = ? AND year = ?",
+                (user_id, now.month, now.year),
+            )
             budget_row = cursor.fetchone()
-            monthly_budget = float(budget_row['amount']) if budget_row else 0.0
+            monthly_budget = float(budget_row['amount']) if budget_row else 0
 
-            # Category expenses
-            cursor.execute("""
-                SELECT c.name, SUM(e.amount) AS amt FROM expenses e
-                JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = ? 
-                  AND CAST(strftime('%m', e.date) AS INTEGER) = ? 
-                  AND CAST(strftime('%Y', e.date) AS INTEGER) = ?
-                GROUP BY c.name
-            """, (user_id, month, year))
-            cat_rows = cursor.fetchall()
-            cat_expenses = {r['name']: float(r['amt']) for r in cat_rows}
-
+            cursor.execute(
+                "SELECT c.name, COALESCE(SUM(e.amount), 0) AS total FROM expenses e "
+                "JOIN categories c ON e.category_id = c.id "
+                "WHERE e.user_id = ? AND CAST(strftime('%m', e.date) AS INTEGER) = ? "
+                "AND CAST(strftime('%Y', e.date) AS INTEGER) = ? GROUP BY c.name",
+                (user_id, now.month, now.year),
+            )
+            category_expenses = {row['name']: float(row['total']) for row in cursor.fetchall()}
     finally:
         connection.close()
 
-    # 1. GREETINGS / HELP
-    greeting_kws = ['hi', 'hello', 'hey', 'வணக்கம்', 'நலமா', 'உதவி', 'నమస్కారం', 'नमस्ते', 'hola', 'vanakkam', 'namaste']
-    if any(kw in query_lower for kw in greeting_kws):
-        if language == 'ta':
-            return "வணக்கம்! நான் உங்கள் ஸ்பெண்டோரா AI நிதி உதவியாளர். உங்கள் செலவு, பட்ஜெட் மற்றும் சேமிப்பு தொடர்பான கேள்விகளைக் கேட்கலாம்!"
-        elif language == 'te':
-            return "నమస్కారం! నేను మీ స్పెండోరా AI ఆర్థిక సహాయకుడిని. మీ ఖర్చులు, బడ్జెట్ మరియు పొదుపు గురించి అడగవచ్చు!"
-        elif language == 'hi':
-            return "नमस्ते! मैं आपका स्पेंडोरा AI वित्तीय सहायक हूँ। आप अपने खर्च, बजट और बचत के बारे में पूछ सकते हैं!"
-        elif language == 'es':
-            return "¡Hola! Soy tu asistente financiero Spendora AI. ¡Puedes preguntarme sobre tus gastos, presupuesto y ahorros!"
-        else:
-            return "Hello! I am your Spendora AI financial assistant. Ask me about your spending, budget, or financial status!"
-
-    # 2. CATEGORY SPECIFIC SPENDING
-    matched_cat = None
-    for kw, cat in CATEGORY_MAP.items():
-        if kw in query_lower:
-            matched_cat = cat
-            break
-
-    spend_kws = ['spent', 'spend', 'cost', 'expense', 'how much', 'எவ்வளவு', 'செலவு', 'ஆனது', 'எது', 'ఎంత', 'कितना', 'cuánto', 'evvalavu', 'evlo', 'selavu']
-    if matched_cat and any(kw in query_lower for kw in spend_kws):
-        cat_amt = cat_expenses.get(matched_cat, 0.0)
-        if language == 'ta':
-            return f"இந்த மாதத்தில் '{matched_cat}' பிரிவில் உங்கள் மொத்த செலவு ₹{cat_amt:,.2f}."
-        elif language == 'te':
-            return f"ఈ నెలలో '{matched_cat}' విభాగంలో మీ మొత్తం ఖర్చు ₹{cat_amt:,.2f}."
-        elif language == 'hi':
-            return f"इस महीने '{matched_cat}' श्रेणी में आपका कुल खर्च ₹{cat_amt:,.2f} है।"
-        elif language == 'es':
-            return f"Este mes has gastado ₹{cat_amt:,.2f} en la categoría '{matched_cat}'."
-        else:
-            return f"You have spent ₹{cat_amt:,.2f} on '{matched_cat}' this month."
-
-    # 3. MONTHLY EXPENSES QUERY
-    monthly_exp_kws = [
-        'monthly spent', 'spent this month', 'total spent', 'how much spent', 'total expense', 
-        'செலவு எவ்வளவு', 'மாத செலவு', 'செலவுகள்', 'செலவு', 'இந்த மாத செலவு',
-        'ఖర్చు', 'ఈ నె        return f"Your overall balance is ₹{bal:,.2f} (Total Income: ₹{t_inc:,.2f}, Total Expenses: ₹{t_exp:,.2f})."
-
-
-# ==========================================�ானம்: ₹{t_inc:,.2f}, மொத்த செலவு: ₹{t_exp:,.2f})."
-    elif language == 'te':
-        return f"మీ మొత్తం నిల్వ ₹{bal:,.2f} (మొత్తం ఆదాయం: ₹{t_inc:,.2f}, మొత్తం ఖర్చు: ₹{t_exp:,.2f})."
-    elif language == 'hi':
-        return f"आपका कुल शेष ₹{bal:,.2f} है (कुल आय: ₹{t_inc:,.2f}, कुल खर्च: ₹{t_exp:,.2f})।"
-    elif language == 'es':
-        return f"Tu saldo general es ₹{bal:,.2f} (Ingresos totales: ₹{t_inc:,.2f}, Gastos totales: ₹{t_exp:,.2f})."
-    else:
-        return f"Your overall balance is ₹{bal:,.2f} (Total Income: ₹{t_inc:,.2f}, Total Expenses: ₹{t_exp:,.2f})." ఆదాయంలో కనీసం 20% మొత్తాన్ని పొదుపు ఖాతాలో ఉంచండి!"
-        elif language == 'hi':
-            return "वित्तीय सलाह: हर महीने अपनी आय का कम से कम 20% बचाएं!"
-        else:
-            return "Financial Tip: Try to automatically save at least 20% of your income on pay day!"
-
-    # 7. BALANCE QUERY / DEFAULT
-    if language == 'ta':
-        return f"உங்கள் மொத்த இருப்பு ₹{bal:,.2f} (மொத்த வருமானம்: ₹{t_inc:,.2f}, மொத்த செலவு: ₹{t_exp:,.2f})."
-    elif language == 'te':
-        return f"మీ మొత్తం నిల్వ ₹{bal:,.2f} (మొత్తం ఆదాయం: ₹{t_inc:,.2f}, మొత్తం ఖర్చు: ₹{t_exp:,.2f})."
-    elif language == 'hi':
-        return f"आपका कुल शेष ₹{bal:,.2f} है (कुल आय: ₹{t_inc:,.2f}, कुल खर्च: ₹{t_exp:,.2f})।"
-    elif language == 'es':
-        return f"Tu saldo general es ₹{bal:,.2f} (Ingresos totales: ₹{t_inc:,.2f}, Gastos totales: ₹{t_exp:,.2f})."
-    else:
-        return f"Your overall balance is ₹{bal:,.2f} (Total Income: ₹{t_inc:,.2f}, Total Expenses: ₹{t_exp:,.2f})." language == 'es':
-            return f"Este mes has gastado ₹{cat_amt:,.2f} en la categoría '{matched_cat}'."
-        else:
-            return f"You have spent ₹{cat_amt:,.2f} on '{matched_cat}' this month."
-
-    # 3. MONTHLY EXPENSES QUERY
-    if re.search(r'\b(monthly spent|spent this month|total spent|how much spent|total expense|செலவு எவ்வளவு|மாத செலவு|செலவுகள்|செலவு|ఖర్చు|कुल खर्च|gasto total)\b', query_lower):
-        if language == 'ta':
-            return f"இந்த மாதத்தில் உங்கள் மொத்த செலவு ₹{m_exp:,.2f}."
-        elif language == 'te':
-            return f"ఈ నెలలో మీ మొత్తం ఖర్చు ₹{m_exp:,.2f}."
-        elif language == 'hi':
-            return f"इस महीने आपका कुल खर्च ₹{m_exp:,.2f} है।"
-        elif language == 'es':
-            return f"Tu gasto total de este mes es ₹{m_exp:,.2f}."
-        else:
-            return f"Your total expenses for this month are ₹{m_exp:,.2f}."
-
-    # 4. MONTHLY INCOME QUERY
-    if re.search(r'\b(monthly income|total income|income this month|earning|earned|வருமானம் எவ்வளவு|வருமானம்|ஆదాయం|कुल आय|ingresos)\b', query_lower):
-        if language == 'ta':
-            return f"இந்த மாதத்தில் உங்கள் மொத்த வருமானம் ₹{m_inc:,.2f}."
-        elif language == 'te':
-            return f"ఈ నెలలో మీ మొత్తం ఆదాయం ₹{m_inc:,.2f}."
-        elif language == 'hi':
-            return f"इस महीने आपकी कुल आय ₹{m_inc:,.2f} है।"
-        elif language == 'es':
-            return f"Tus ingresos totales de este mes son ₹{m_inc:,.2f}."
-        else:
-            return f"Your total income for this month is ₹{m_inc:,.2f}."
-
-    # 5. BUDGET QUERY
-    if re.search(r'\b(budget|remaining budget|budget limit|பட்ஜெட்|பட்ஜெட் நிலவரம்|மீதி பட்ஜெட்|வரம்பு|బడ్జెట్|बजट|presupuesto)\b', query_lower):
-        if monthly_budget > 0:
-            rem = monthly_budget - m_exp
-            pct = (m_exp / monthly_budget) * 100
-            if language == 'ta':
-                return f"உங்கள் மாதாந்திர பட்ஜெட் ₹{monthly_budget:,.2f}. செலவு: ₹{m_exp:,.2f} ({pct:.1f}%). மீதம் இருப்பது ₹{rem:,.2f}."
-            elif language == 'te':
-                return f"మీ నెలవారీ బడ్జెట్ ₹{monthly_budget:,.2f}. ఖర్చు: ₹{m_exp:,.2f} ({pct:.1f}%). మిగిలినది ₹{rem:,.2f}."
-            elif language == 'hi':
-                return f"आपका मासिक बजट ₹{monthly_budget:,.2f} है। खर्च: ₹{m_exp:,.2f} ({pct:.1f}%)। शेष ₹{rem:,.2f} है।"
-            elif language == 'es':
-                return f"Tu presupuesto mensual es ₹{monthly_budget:,.2f}. Has gastado ₹{m_exp:,.2f} ({pct:.1f}%). Te quedan ₹{rem:,.2f}."
-            else:
-                return f"Your monthly budget is ₹{monthly_budget:,.2f}. You spent ₹{m_exp:,.2f} ({pct:.1f}%). Remaining: ₹{rem:,.2f}."
-        else:
-            if language == 'ta':
-                return "இந்த மாதத்திற்கு இன்னும் பட்ஜெட் வரம்பு எதுவும் அமைக்கப்படவில்லை."
-            elif language == 'te':
-                return "ఈ నెలకు ఎటువంటి బడ్జెట్ సెట్ చేయబడలేదు."
-            elif language == 'hi':
-                return "इस महीने के लिए कोई बजट निर्धारित नहीं है।"
-            else:
-                return "You haven't set a budget for this month yet."
-
-    # 6. SAVINGS / TIPS QUERY
-    if re.search(r'\b(tip|advice|suggestion|save|saving|சேமிப்பு|ஆலோசனை|உதவி|நலன்|సలహా|सलाह|consejo)\b', query_lower):
-        if language == 'ta':
-            return "நிதி ஆலோசனை: உங்கள் சம்பள நாளில் 20% தொகையை உடனே சேமிப்புக் கணக்கில் ஒதுக்கி வைக்கப் பழகுங்கள்!"
-        elif language == 'te':
-            return "ఆర్థిక సలహా: మీ ఆదాయంలో కనీసం 20% మొత్తాన్ని పొదుపు ఖాతాలో ఉంచండి!"
-        elif language == 'hi':
-            return "वित्तीय सलाह: हर महीने अपनी आय का कम से कम 20% बचाएं!"
-        else:
-            return "Financial Tip: Try to automatically save at least 20% of your income on pay day!"
-
-    # 7. BALANCE QUERY / DEFAULT
-    if language == 'ta':
-        return f"உங்கள் மொத்த இருப்பு ₹{bal:,.2f} (வருமானம்: ₹{t_inc:,.2f}, செலவு: ₹{t_exp:,.2f})."
-    elif language == 'te':
-        return f"మీ మొత్తం నిల్వ ₹{bal:,.2f} (ఆదాయం: ₹{t_inc:,.2f}, ఖర్చు: ₹{t_exp:,.2f})."
-    elif language == 'hi':
-        return f"आपका कुल शेष ₹{bal:,.2f} है (आय: ₹{t_inc:,.2f}, खर्च: ₹{t_exp:,.2f})।"
-    elif language == 'es':
-        return f"Tu saldo general es ₹{bal:,.2f} (Ingresos: ₹{t_inc:,.2f}, Gastos: ₹{t_exp:,.2f})."
-    else:
-        return f"Your overall balance is ₹{bal:,.2f} (Total Income: ₹{t_inc:,.2f}, Total Expenses: ₹{t_exp:,.2f})."
-
-
-# ==========================================
-# GEMINI MODEL HANDLERS
-# ==========================================
-
-def get_monthly_data_context(user_id):
-    now = datetime.datetime.now()
-    month = now.month
-    year = now.year
-
-    connection = get_db_connection()
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT amount, categories_budget FROM budgets WHERE user_id = ? AND month = ? AND year = ?", (user_id, month, year))
-            budget_row = cursor.fetchone()
-            budget = float(budget_row['amount']) if budget_row else 0.0
-            
-            cursor.execute("""
-                SELECT amount, source, date, description FROM income 
-                WHERE user_id = ? 
-                  AND CAST(strftime('%m', date) AS INTEGER) = ? 
-                  AND CAST(strftime('%Y', date) AS INTEGER) = ?
-            """, (user_id, month, year))
-            incomes = cursor.fetchall()
-            for inc in incomes:
-                inc['amount'] = float(inc['amount'])
-                if isinstance(inc['date'], datetime.date):
-                    inc['date'] = inc['date'].strftime('%Y-%m-%d')
-
-            cursor.execute("""
-                SELECT e.amount, c.name as category, e.date, e.description, e.payment_method 
-                FROM expenses e
-                JOIN categories c ON e.category_id = c.id
-                WHERE e.user_id = ? 
-                  AND CAST(strftime('%m', e.date) AS INTEGER) = ? 
-                  AND CAST(strftime('%Y', e.date) AS INTEGER) = ?
-            """, (user_id, month, year))
-            expenses = cursor.fetchall()
-            for exp in expenses:
-                exp['amount'] = float(exp['amount'])
-                if isinstance(exp['date'], datetime.date):
-                    exp['date'] = exp['date'].strftime('%Y-%m-%d')
-
-        return {
-            'month': month,
-            'year': year,
-            'budget': budget,
-            'incomes': incomes,
-            'expenses': expenses
+    if any(word in query_lower for word in ('hi', 'hello', 'hey', 'வணக்கம்', 'నమస్కారం', 'नमस्ते', 'hola')):
+        greetings = {
+            'ta': 'வணக்கம்! உங்கள் செலவு மற்றும் பட்ஜெட் பற்றி என்னிடம் கேளுங்கள்.',
+            'te': 'నమస్కారం! మీ ఖర్చులు మరియు బడ్జెట్ గురించి అడగండి.',
+            'hi': 'नमस्ते! अपने खर्च और बजट के बारे में पूछें।',
+            'es': '¡Hola! Pregúntame sobre tus gastos y presupuesto.',
         }
-    finally:
-        connection.close()
+        return greetings.get(language, 'Hello! Ask me about your spending, budget, or financial status.')
 
-def analyze_spending_ai(user_id, language='en'):
-    client = get_gemini_client()
-    lang_name = LANG_NAMES.get(language, 'English')
+    category = next((name for keyword, name in CATEGORY_MAP.items() if keyword in query_lower), None)
+    spend_words = ('spent', 'spend', 'cost', 'expense', 'how much', 'செலவு', 'ఖర్చు', 'खर्च', 'gasto')
+    if category and any(word in query_lower for word in spend_words):
+        amount = category_expenses.get(category, 0)
+        return f"You have spent ₹{amount:,.2f} on '{category}' this month."
 
-    if not client:
-        return rule_based_spending_analysis(user_id, language=language)
+    if any(word in query_lower for word in ('income', 'earning', 'earned', 'வருமானம்', 'ఆదాయం', 'आय', 'ingresos')):
+        return f"Your total income for this month is ₹{monthly_income:,.2f}."
+    if any(word in query_lower for word in ('budget', 'பட்ஜெட்', 'బడ్జెట్', 'बजट', 'presupuesto')):
+        if monthly_budget:
+            remaining = monthly_budget - monthly_expenses
+            percent = monthly_expenses / monthly_budget * 100
+            return f"Your monthly budget is ₹{monthly_budget:,.2f}. You spent ₹{monthly_expenses:,.2f} ({percent:.1f}%). Remaining: ₹{remaining:,.2f}."
+        return "You haven't set a budget for this month yet."
+    if any(word in query_lower for word in ('tip', 'advice', 'suggestion', 'save', 'saving', 'சேமிப்பு', 'सलाह', 'consejo')):
+        tips = {
+            'ta': 'நிதி ஆலோசனை: உங்கள் வருமானத்தில் குறைந்தது 20% சேமிக்க முயற்சிக்கவும்!',
+            'te': 'ఆర్థిక సలహా: మీ ఆదాయంలో కనీసం 20% పొదుపు చేయండి!',
+            'hi': 'वित्तीय सलाह: हर महीने अपनी आय का कम से कम 20% बचाएं!',
+            'es': 'Consejo financiero: intenta ahorrar al menos el 20% de tus ingresos.',
+        }
+        return tips.get(language, 'Financial tip: try to save at least 20% of your income each month.')
+    if any(word in query_lower for word in ('monthly spent', 'spent this month', 'total spent', 'total expense', 'செலவு', 'खर्च', 'gasto')):
+        return f"Your total expenses for this month are ₹{monthly_expenses:,.2f}."
 
-    context = get_monthly_data_context(user_id)
-    
-    prompt = f"""
-    You are Spendora's expert AI financial advisor. Analyze the user's monthly spending, income, and budget data:
-    {json.dumps(context, indent=2)}
-
-    IMPORTANT: You MUST generate your ENTIRE JSON text response in the language: {lang_name}.
-    Translate all insights, recommendations, and suggestions into {lang_name}.
-
-    Generate a response in JSON format containing:
-    1. "insights": A list of 2-3 bulleted observations regarding spending patterns in {lang_name}.
-    2. "recommendations": A list of 1-2 actionable recommendations in {lang_name}.
-    3. "suggestions": A list of 1-2 savings tips in {lang_name}.
-
-    Output ONLY valid JSON.
-    """
-    
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt
-        )
-        text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-        
-        parsed = json.loads(text)
-        return parsed
-    except Exception as e:
-        print(f"Gemini API Error, falling back to local: {str(e)}")
-        return rule_based_spending_analysis(user_id, language=language)
-
-def get_budget_recommendation_ai(user_id, income, language='en'):
-    client = get_gemini_client()
-    lang_name = LANG_NAMES.get(language, 'English')
-
-    if not client:
-        return rule_based_budget_recommendation(income, language=language)
-
-    context = get_monthly_data_context(user_id)
-
-    prompt = f"""
-    You are Spendora's expert AI financial advisor. The user wants to split a monthly income of ₹{income} into category budgets.
-    Here is their recent monthly transactions context:
-    {json.dumps(context, indent=2)}
-
-    IMPORTANT: Write the "explanation" text field entirely in {lang_name}.
-    
-    Generate a JSON response containing:
-    1. "total_income": The input income amount.
-    2. "recommendation": A dictionary mapping standard categories (Rent, Bills, Food, Shopping, Transport, Healthcare, Education, Travel, Entertainment, Savings, Other) to numeric amounts.
-    3. "explanation": A brief, professional description in {lang_name} explaining this 50/30/20 breakdown.
-    
-    Output ONLY valid JSON.
-    """
-
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt
-        )
-        text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-        
-        parsed = json.loads(text)
-        return parsed
-    except Exception as e:
-        print(f"Gemini API Error, falling back to local budget suggestion: {str(e)}")
-        return rule_based_budget_recommendation(income, language=language)
-
-def chat_with_ai(user_id, query, language='en'):
-    client = get_gemini_client()
-    lang_name = LANG_NAMES.get(language, 'English')
-
-    if not client:
-        return rule_based_chat(user_id, query, language=language)
-
-    context = get_monthly_data_context(user_id)
-
-    prompt = f"""
-    You are Spendora's personal financial chatbot assistant.
-    User's finance data for this month:
-    {json.dumps(context, indent=2)}
-
-    Answer the user's question: "{query}"
-
-    IMPORTANT: You MUST respond entirely in the language: {lang_name}.
-    Keep your response concise (1-3 sentences max), actionable, and friendly.
-    """
-
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt
-        )
-        return response.text.strip()
-    except Exception as e:
-        print(f"Gemini Chat API Error, falling back to local: {str(e)}")
-        return rule_based_chat(user_id, query, language=language)
+    balance = total_income - total_expenses
+    return f"Your overall balance is ₹{balance:,.2f} (Total Income: ₹{total_income:,.2f}, Total Expenses: ₹{total_expenses:,.2f})."
