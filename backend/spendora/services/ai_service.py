@@ -362,3 +362,124 @@ def rule_based_chat(user_id, query, language='en'):
 
     balance = total_income - total_expenses
     return f"Your overall balance is ₹{balance:,.2f} (Total Income: ₹{total_income:,.2f}, Total Expenses: ₹{total_expenses:,.2f})."
+
+
+def get_monthly_data_context(user_id):
+    """Return this month's budget, income, and expenses for the AI prompts."""
+    now = datetime.datetime.now()
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT amount, categories_budget FROM budgets "
+                "WHERE user_id = ? AND month = ? AND year = ?",
+                (user_id, now.month, now.year),
+            )
+            budget_row = cursor.fetchone()
+            budget = dict(budget_row) if budget_row else {'amount': 0, 'categories_budget': None}
+
+            cursor.execute(
+                "SELECT amount, source, date, description FROM income "
+                "WHERE user_id = ? AND CAST(strftime('%m', date) AS INTEGER) = ? "
+                "AND CAST(strftime('%Y', date) AS INTEGER) = ?",
+                (user_id, now.month, now.year),
+            )
+            incomes = [dict(row) for row in cursor.fetchall()]
+
+            cursor.execute(
+                "SELECT e.amount, c.name AS category, e.date, e.description, e.payment_method "
+                "FROM expenses e JOIN categories c ON e.category_id = c.id "
+                "WHERE e.user_id = ? AND CAST(strftime('%m', e.date) AS INTEGER) = ? "
+                "AND CAST(strftime('%Y', e.date) AS INTEGER) = ?",
+                (user_id, now.month, now.year),
+            )
+            expenses = [dict(row) for row in cursor.fetchall()]
+
+        for item in incomes + expenses:
+            item['amount'] = float(item['amount'] or 0)
+            if isinstance(item.get('date'), (datetime.date, datetime.datetime)):
+                item['date'] = item['date'].strftime('%Y-%m-%d')
+
+        return {
+            'month': now.month,
+            'year': now.year,
+            'budget': budget,
+            'incomes': incomes,
+            'expenses': expenses,
+        }
+    finally:
+        connection.close()
+
+
+def _generate_json(prompt):
+    """Ask Gemini for JSON and parse plain or fenced JSON responses."""
+    client = get_gemini_client()
+    if not client:
+        return None
+    response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+    text = (response.text or '').strip()
+    if text.startswith('```'):
+        text = text.split('\n', 1)[-1]
+        if text.endswith('```'):
+            text = text[:-3]
+    return json.loads(text.strip())
+
+
+def analyze_spending_ai(user_id, language='en'):
+    """Generate monthly spending insights, falling back to local analysis."""
+    context = get_monthly_data_context(user_id)
+    lang_name = LANG_NAMES.get(language, 'English')
+    prompt = (
+        "You are Spendora's financial advisor. Analyze this monthly financial data:\n"
+        f"{json.dumps(context, ensure_ascii=False, indent=2)}\n"
+        f"Respond entirely in {lang_name} as valid JSON only, with keys "
+        '"insights" (2-3 observations), "recommendations" (1-2 actions), and '
+        '"suggestions" (1-2 savings tips).'
+    )
+    try:
+        return _generate_json(prompt) or rule_based_spending_analysis(user_id, language)
+    except Exception as exc:
+        print(f"Gemini analysis failed; using local fallback: {exc}")
+        return rule_based_spending_analysis(user_id, language)
+
+
+def get_budget_recommendation_ai(user_id, income, language='en'):
+    """Recommend category budgets for an income amount."""
+    try:
+        income_amount = float(income)
+    except (TypeError, ValueError):
+        income_amount = 30000.0
+    context = get_monthly_data_context(user_id)
+    lang_name = LANG_NAMES.get(language, 'English')
+    prompt = (
+        f"Recommend category budget allocations for monthly income ₹{income_amount:.2f}. "
+        f"Recent financial context: {json.dumps(context, ensure_ascii=False)}. "
+        f"Explain the 50/30/20 approach in {lang_name}. Return valid JSON only with "
+        '"total_income" (number), "recommendation" (category-to-number object), '
+        'and "explanation" (string).'
+    )
+    try:
+        return _generate_json(prompt) or rule_based_budget_recommendation(income_amount, language)
+    except Exception as exc:
+        print(f"Gemini budget recommendation failed; using local fallback: {exc}")
+        return rule_based_budget_recommendation(income_amount, language)
+
+
+def chat_with_ai(user_id, query, language='en'):
+    """Answer a finance question with Gemini or the local rule-based assistant."""
+    context = get_monthly_data_context(user_id)
+    lang_name = LANG_NAMES.get(language, 'English')
+    prompt = (
+        "You are Spendora's concise, friendly financial assistant. Use only this "
+        f"monthly financial data: {json.dumps(context, ensure_ascii=False)}\n"
+        f"Answer in {lang_name}: {query}"
+    )
+    try:
+        client = get_gemini_client()
+        if client:
+            response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+            if response.text:
+                return response.text.strip()
+    except Exception as exc:
+        print(f"Gemini chat failed; using local fallback: {exc}")
+    return rule_based_chat(user_id, query, language)
