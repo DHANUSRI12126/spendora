@@ -549,7 +549,7 @@ const Dashboard = () => {
                       <td style={{ fontSize: '0.82rem' }}>{tx.date}</td>
                       <td style={{ fontWeight: 600 }}>{tx.name}</td>
                       <td>
-                        <span style={getCategoryStyle(tx.category_name)}>
+                        <span style={getCategoryStyle(tx.category_name)} className="badge-tx-category">
                           {tCategory(tx.category_name)}
                         </span>
                       </td>
@@ -647,7 +647,7 @@ const Dashboard = () => {
                 <label className="form-label">Category*</label>
                 <select className="form-control" value={expenseForm.category_id} onChange={(e) => setExpenseForm({ ...expenseForm, category_id: e.target.value })} required>
                   <option value="">Select Category</option>
-                  {categories.filter(c => c.type === 'expense').map(c => (
+                  {Array.from(new Map(categories.filter(c => c.type === 'expense').map(c => [c.name.toLowerCase(), c])).values()).map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>

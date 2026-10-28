@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { User, Lock, Mail, ShieldAlert } from 'lucide-react';
+import { User, Lock, Mail, ShieldAlert, Palette } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -53,8 +54,34 @@ const Profile = () => {
       
       {/* Title block */}
       <div>
-        <h3 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: '4px' }}>Account Settings</h3>
+        <h3 style={{ fontSize: '1.25rem', color: 'var(--heading-color)', marginBottom: '4px' }}>Account Settings</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Update your profile name or change your security credentials.</p>
+      </div>
+
+      {/* Theme Appearance Card */}
+      <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: 'rgba(99, 102, 241, 0.1)',
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--primary)'
+          }}>
+            <Palette size={20} />
+          </div>
+          <div>
+            <h4 style={{ fontSize: '0.98rem', color: 'var(--heading-color)', margin: 0, fontWeight: 600 }}>Interface Theme</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Select light or dark workspace scheme.</p>
+          </div>
+        </div>
+        <div style={{ marginTop: '2px' }}>
+          <ThemeToggle variant="pill" />
+        </div>
       </div>
 
       <div className="card" style={{ padding: '30px' }}>
@@ -106,8 +133,8 @@ const Profile = () => {
           </div>
 
           {/* Password Reset */}
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', marginTop: '10px' }}>
-            <h4 style={{ fontSize: '0.9rem', color: '#fff', marginBottom: '12px' }}>Change Password (Leave blank to keep current)</h4>
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '10px' }}>
+            <h4 style={{ fontSize: '0.9rem', color: 'var(--heading-color)', marginBottom: '12px' }}>Change Password (Leave blank to keep current)</h4>
             
             <div className="form-group">
               <label className="form-label">New Password</label>

@@ -59,9 +59,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           bottom: 0,
           left: 0,
           width: '260px',
-          background: 'rgba(18, 22, 32, 0.95)',
+          background: 'var(--sidebar-bg)',
           backdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRight: '1px solid var(--border-color)',
           display: 'flex',
           flexDirection: 'column',
           zIndex: 1000,
@@ -76,7 +76,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+          borderBottom: '1px solid var(--border-color)'
         }}>
           <div>
             <h1 style={{
@@ -131,8 +131,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                       borderRadius: '10px',
                       fontSize: '0.92rem',
                       fontWeight: 500,
-                      color: isActive ? '#fff' : 'var(--text-secondary)',
-                      background: isActive ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                      color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                      background: isActive ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
                       borderLeft: isActive ? '3px solid var(--primary)' : '3px solid transparent',
                       transition: 'all 0.2s'
                     })}
@@ -150,14 +150,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {/* Footer profile & logout */}
         <div style={{
           padding: '20px',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          background: 'rgba(0,0,0,0.15)',
+          borderTop: '1px solid var(--border-color)',
+          background: 'var(--sidebar-footer-bg)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
           <div style={{ overflow: 'hidden' }}>
-            <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--heading-color)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
               {user.full_name}
             </p>
             <span style={{ 

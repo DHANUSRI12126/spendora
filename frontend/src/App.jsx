@@ -33,7 +33,7 @@ const ProtectedRoute = ({ children }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0a0c10',
+        background: 'var(--bg-primary)',
         color: 'var(--text-secondary)'
       }}>
         Loading your workspace session...
@@ -154,21 +154,24 @@ const AppRoutes = () => {
   );
 };
 
+import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 
 const App = () => {
   return (
     <Router>
-      <LanguageProvider>
-        <CurrencyProvider>
-          <AuthProvider>
-            <NotificationProvider>
-              <AppRoutes />
-            </NotificationProvider>
-          </AuthProvider>
-        </CurrencyProvider>
-      </LanguageProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <CurrencyProvider>
+            <AuthProvider>
+              <NotificationProvider>
+                <AppRoutes />
+              </NotificationProvider>
+            </AuthProvider>
+          </CurrencyProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </Router>
   );
 };

@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { User, Lock, Mail, ArrowLeft } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 const Register = () => {
   const { register } = useAuth();
   const { showToast } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(location.state?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('USER');
@@ -58,23 +60,25 @@ const Register = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#0a0c10',
-      background: 'radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.1) 0%, rgba(10, 12, 16, 1) 60%)',
+      backgroundColor: 'var(--bg-primary)',
+      background: 'radial-gradient(circle at bottom left, var(--landing-glow) 0%, var(--bg-primary) 60%)',
       padding: '20px'
     }}>
       <div style={{ maxWidth: '420px', width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {/* Back Link */}
-        <Link to="/" style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          color: 'var(--text-secondary)',
-          fontSize: '0.85rem',
-          alignSelf: 'flex-start'
-        }}>
-          <ArrowLeft size={16} /> Back to Landing Page
-        </Link>
+        {/* Back Link & Theme Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <Link to="/" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: 'var(--text-secondary)',
+            fontSize: '0.85rem'
+          }}>
+            <ArrowLeft size={16} /> Back to Landing Page
+          </Link>
+          <ThemeToggle />
+        </div>
 
         {/* Card Panel */}
         <div className="card" style={{ padding: '35px 30px' }}>

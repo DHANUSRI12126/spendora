@@ -10,6 +10,7 @@ import {
   Mic, 
   ShieldCheck 
 } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 const LandingPage = () => {
   const { isAuthenticated } = useAuth();
@@ -19,8 +20,8 @@ const LandingPage = () => {
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      backgroundColor: '#0a0c10',
-      background: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.1) 0%, rgba(10, 12, 16, 1) 60%)',
+      backgroundColor: 'var(--bg-primary)',
+      background: 'radial-gradient(circle at top right, var(--landing-glow) 0%, var(--bg-primary) 60%)',
     }}>
       {/* Navbar header */}
       <nav style={{
@@ -28,7 +29,7 @@ const LandingPage = () => {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '24px 80px',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        borderBottom: '1px solid var(--border-color)',
       }} className="landing-nav">
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <span style={{
@@ -40,6 +41,7 @@ const LandingPage = () => {
           }}>Spendora</span>
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <ThemeToggle />
           {isAuthenticated ? (
             <Link to="/dashboard" className="btn btn-primary">Go to Dashboard</Link>
           ) : (

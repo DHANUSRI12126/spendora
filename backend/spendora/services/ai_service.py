@@ -165,53 +165,7 @@ def rule_based_spending_analysis(user_id, language='en'):
                 insights.append(f"इस महीने आपका उच्चतम खर्च श्रेणी '{highest_cat}' है (₹{highest_amt:,.2f})।")
             suggestions.append("वेतन दिवस पर अपनी कमाई का 10% अलग बचत खाते में रखें।")
 
-        elif language == 'es':
-            if monthly_budget > 0:
-                percent = (month_expenses / monthly_budget) * 100
-                insights.append(f"Has gastado el {percent:.1f}% de tu presupuesto mensual (₹{month_expenses:,.2f} gastados de ₹{monthly_budget:,.2f}).")
-                if percent >= 100:
-                    recommendations.append("¡Tu presupuesto ha sido excedido! Reduce gastos no esenciales.")
-                else:
-                    recommendations.append("¡Buen trabajo! Estás dentro de tus límites de presupuesto mensual.")
-            else:
-                insights.append("No has establecido un presupuesto para este mes.")
-
-            if cat_breakdown:
-                highest_cat = cat_breakdown[0]['name']
-                highest_amt = float(cat_breakdown[0]['amt'])
-                insights.append(f"Tu categoría de mayor gasto este mes es '{highest_cat}' con ₹{highest_amt:,.2f}.")
-            suggestions.append("Reserva el 10% de tus ingresos en una cuenta de ahorros separada.")
-
-        else:
-            if monthly_budget > 0:
-                percent = (month_expenses / monthly_budget) * 100
-                insights.append(f"You have spent {percent:.1f}% of your monthly budget (₹{month_expenses:,.2f} spent of ₹{monthly_budget:,.2f} budget).")
-                if percent >= 100:
-                    recommendations.append("Your budget is exceeded! Lock down any non-essential shopping or entertainment spending immediately.")
-                elif percent >= 85:
-                    recommendations.append("You are nearing your budget limit. Consider trimming variable expenses for the rest of the month.")
-                else:
-                    recommendations.append("Good job! You are currently within your monthly budget limits.")
-            else:
-                insights.append("You haven't set a budget for this month. Setting a budget helps restrict impulsive purchases.")
-                recommendations.append("Go to the Budgets page to create a monthly limit for your spending.")
-
-            if cat_breakdown:
-                highest_cat = cat_breakdown[0]['name']
-                highest_amt = float(cat_breakdown[0]['amt'])
-                insights.append(f"Your highest spending category this month is '{highest_cat}' with an expense of ₹{highest_amt:,.2f}.")
-                if highest_cat in ['Food', 'Shopping', 'Entertainment']:
-                    suggestions.append(f"Try lowering your '{highest_cat}' costs by looking for discounts or ordering less.")
-            else:
-                insights.append("No expenses logged for this month yet. Start logging expenses to see detailed category analysis.")
-
-            if month_income > 0:
-                savings_pct = ((month_income - month_expenses) / month_income) * 100
-                if savings_pct > 20:
-                    suggestions.append(f"Excellent saving rate! You saved {savings_pct:.1f}% of your income this month.")
-                elif savings_pct > 0:
-                    suggestions.append(f"You saved {savings_pct:.1f}% of your income. Standard practice suggests targeting 20%.")
-                else:
+                      else:
                     suggestions.append("You spent more than you earned this month. Review your purchases and cut non-essentials.")
             else:
                 suggestions.append("Record your monthly salary or other income sources to calculate your monthly savings rate.")
@@ -226,6 +180,7 @@ def rule_based_spending_analysis(user_id, language='en'):
         }
     finally:
         connection.close()
+
 
 def rule_based_budget_recommendation(income, language='en'):
     try:
@@ -266,6 +221,7 @@ def rule_based_budget_recommendation(income, language='en'):
         'explanation': explanation
     }
 
+
 def month_expenses_helper(user_id, month, year):
     connection = get_db_connection()
     try:
@@ -280,17 +236,22 @@ def month_expenses_helper(user_id, month, year):
     finally:
         connection.close()
 
-import re
 
 def rule_based_chat(user_id, query, language='en'):
     """
     Multi-language intelligent rule-based query parser and responder.
-    Responds to specific questions about monthly expenses, income, category totals,
-    budget status, savings tips, and overall balance.
+    Responds in the user's selected language (Tamil, Telugu, Hindi, Spanish, English).
+    Automatically detects language from input if query is in regional script or transliterated Tanglish.
     """
-    from spendora.routes.voice import CATEGORY_MAP
+    from spendora.routes.voice import CATEGORY_MAP, detect_language
     
     query_lower = query.lower().strip()
+
+    # Automatically detect language from the query if language is default 'en'
+    detected = detect_language(query, fallback_lang=language)
+    if language == 'en' and detected != 'en':
+        language = detected
+
     now = datetime.datetime.now()
     month = now.month
     year = now.year
@@ -348,7 +309,8 @@ def rule_based_chat(user_id, query, language='en'):
         connection.close()
 
     # 1. GREETINGS / HELP
-    if re.search(r'\b(hi|hello|hey|வணக்கம்|நலமா|உதவி|నమస్కారం|नमस्ते|hola)\b', query_lower):
+    greeting_kws = ['hi', 'hello', 'hey', 'வணக்கம்', 'நலமா', 'உதவி', 'నమస్కారం', 'नमस्ते', 'hola', 'vanakkam', 'namaste']
+    if any(kw in query_lower for kw in greeting_kws):
         if language == 'ta':
             return "வணக்கம்! நான் உங்கள் ஸ்பெண்டோரா AI நிதி உதவியாளர். உங்கள் செலவு, பட்ஜெட் மற்றும் சேமிப்பு தொடர்பான கேள்விகளைக் கேட்கலாம்!"
         elif language == 'te':
@@ -367,7 +329,8 @@ def rule_based_chat(user_id, query, language='en'):
             matched_cat = cat
             break
 
-    if matched_cat and re.search(r'\b(spent|spend|cost|expense|how much|எவ்வளவு|செலவு|ஆனது|எது|ఎంత|कितना|cuánto)\b', query_lower):
+    spend_kws = ['spent', 'spend', 'cost', 'expense', 'how much', 'எவ்வளவு', 'செலவு', 'ஆனது', 'எது', 'ఎంత', 'कितना', 'cuánto', 'evvalavu', 'evlo', 'selavu']
+    if matched_cat and any(kw in query_lower for kw in spend_kws):
         cat_amt = cat_expenses.get(matched_cat, 0.0)
         if language == 'ta':
             return f"இந்த மாதத்தில் '{matched_cat}' பிரிவில் உங்கள் மொத்த செலவு ₹{cat_amt:,.2f}."
@@ -376,6 +339,42 @@ def rule_based_chat(user_id, query, language='en'):
         elif language == 'hi':
             return f"इस महीने '{matched_cat}' श्रेणी में आपका कुल खर्च ₹{cat_amt:,.2f} है।"
         elif language == 'es':
+            return f"Este mes has gastado ₹{cat_amt:,.2f} en la categoría '{matched_cat}'."
+        else:
+            return f"You have spent ₹{cat_amt:,.2f} on '{matched_cat}' this month."
+
+    # 3. MONTHLY EXPENSES QUERY
+    monthly_exp_kws = [
+        'monthly spent', 'spent this month', 'total spent', 'how much spent', 'total expense', 
+        'செலவு எவ்வளவு', 'மாத செலவு', 'செலவுகள்', 'செலவு', 'இந்த மாத செலவு',
+        'ఖర్చు', 'ఈ నె        return f"Your overall balance is ₹{bal:,.2f} (Total Income: ₹{t_inc:,.2f}, Total Expenses: ₹{t_exp:,.2f})."
+
+
+# ==========================================�ானம்: ₹{t_inc:,.2f}, மொத்த செலவு: ₹{t_exp:,.2f})."
+    elif language == 'te':
+        return f"మీ మొత్తం నిల్వ ₹{bal:,.2f} (మొత్తం ఆదాయం: ₹{t_inc:,.2f}, మొత్తం ఖర్చు: ₹{t_exp:,.2f})."
+    elif language == 'hi':
+        return f"आपका कुल शेष ₹{bal:,.2f} है (कुल आय: ₹{t_inc:,.2f}, कुल खर्च: ₹{t_exp:,.2f})।"
+    elif language == 'es':
+        return f"Tu saldo general es ₹{bal:,.2f} (Ingresos totales: ₹{t_inc:,.2f}, Gastos totales: ₹{t_exp:,.2f})."
+    else:
+        return f"Your overall balance is ₹{bal:,.2f} (Total Income: ₹{t_inc:,.2f}, Total Expenses: ₹{t_exp:,.2f})." ఆదాయంలో కనీసం 20% మొత్తాన్ని పొదుపు ఖాతాలో ఉంచండి!"
+        elif language == 'hi':
+            return "वित्तीय सलाह: हर महीने अपनी आय का कम से कम 20% बचाएं!"
+        else:
+            return "Financial Tip: Try to automatically save at least 20% of your income on pay day!"
+
+    # 7. BALANCE QUERY / DEFAULT
+    if language == 'ta':
+        return f"உங்கள் மொத்த இருப்பு ₹{bal:,.2f} (மொத்த வருமானம்: ₹{t_inc:,.2f}, மொத்த செலவு: ₹{t_exp:,.2f})."
+    elif language == 'te':
+        return f"మీ మొత్తం నిల్వ ₹{bal:,.2f} (మొత్తం ఆదాయం: ₹{t_inc:,.2f}, మొత్తం ఖర్చు: ₹{t_exp:,.2f})."
+    elif language == 'hi':
+        return f"आपका कुल शेष ₹{bal:,.2f} है (कुल आय: ₹{t_inc:,.2f}, कुल खर्च: ₹{t_exp:,.2f})।"
+    elif language == 'es':
+        return f"Tu saldo general es ₹{bal:,.2f} (Ingresos totales: ₹{t_inc:,.2f}, Gastos totales: ₹{t_exp:,.2f})."
+    else:
+        return f"Your overall balance is ₹{bal:,.2f} (Total Income: ₹{t_inc:,.2f}, Total Expenses: ₹{t_exp:,.2f})." language == 'es':
             return f"Este mes has gastado ₹{cat_amt:,.2f} en la categoría '{matched_cat}'."
         else:
             return f"You have spent ₹{cat_amt:,.2f} on '{matched_cat}' this month."

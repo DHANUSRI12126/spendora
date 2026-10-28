@@ -85,7 +85,7 @@ const ReceiptScannerModal = ({ isOpen, onClose, onScanComplete }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Camera size={22} style={{ color: 'var(--primary)' }} />
-            <h3 style={{ fontSize: '1.2rem', color: '#fff', margin: 0 }}>AI Receipt Scanner</h3>
+            <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', margin: 0 }}>AI Receipt Scanner</h3>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
             <X size={20} />
@@ -110,7 +110,7 @@ const ReceiptScannerModal = ({ isOpen, onClose, onScanComplete }) => {
               <img
                 src={previewUrl}
                 alt="Receipt Preview"
-                style={{ maxHeight: '200px', objectFit: 'contain', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}
+                style={{ maxHeight: '200px', objectFit: 'contain', borderRadius: '10px', border: '1px solid var(--border-color, rgba(255,255,255,0.1))' }}
               />
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{selectedFile.name}</span>
             </div>
@@ -118,7 +118,7 @@ const ReceiptScannerModal = ({ isOpen, onClose, onScanComplete }) => {
             <>
               <Upload size={32} style={{ color: 'var(--primary)' }} />
               <div>
-                <p style={{ color: '#fff', fontWeight: 600, margin: '0 0 4px', fontSize: '0.95rem' }}>Upload Receipt or Bill Image</p>
+                <p style={{ color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 4px', fontSize: '0.95rem' }}>Upload Receipt or Bill Image</p>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>PNG, JPG, WEBP formats supported</p>
               </div>
             </>
@@ -152,46 +152,46 @@ const ReceiptScannerModal = ({ isOpen, onClose, onScanComplete }) => {
         {/* Extracted Details Result Card */}
         {scannedData && (
           <div style={{
-            background: 'rgba(16, 185, 129, 0.06)',
-            border: '1px solid rgba(16, 185, 129, 0.2)',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
             borderRadius: '12px',
             padding: '16px',
             display: 'flex',
             flexDirection: 'column',
             gap: '14px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.06))', paddingBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FileText size={18} style={{ color: 'var(--secondary)' }} />
-                <h4 style={{ fontSize: '0.95rem', color: '#fff', margin: 0 }}>Extracted Transaction Details</h4>
+                <h4 style={{ fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>Extracted Transaction Details</h4>
               </div>
-              <span style={{ fontSize: '0.72rem', color: 'var(--secondary)', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '12px' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--secondary)', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
                 Parsed
               </span>
             </div>
 
             {scannedData.summary && (
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '6px', borderLeft: '3px solid var(--secondary)' }}>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic', background: 'rgba(16, 185, 129, 0.05)', padding: '8px 12px', borderRadius: '6px', borderLeft: '3px solid var(--secondary)' }}>
                 "{scannedData.summary}"
               </p>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>AMOUNT</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', fontWeight: 600 }}>AMOUNT</span>
                 <strong style={{ color: 'var(--secondary)', fontSize: '1.1rem' }}>{formatCurrency(scannedData.amount)}</strong>
               </div>
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>MERCHANT / STORE</span>
-                <strong style={{ color: '#fff' }}>{scannedData.merchant || 'Store'}</strong>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', fontWeight: 600 }}>MERCHANT / STORE</span>
+                <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{scannedData.merchant || 'Store'}</strong>
               </div>
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>CATEGORY</span>
-                <strong style={{ color: '#fff' }}>{tCategory(scannedData.category)}</strong>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', fontWeight: 600 }}>CATEGORY</span>
+                <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{tCategory(scannedData.category)}</strong>
               </div>
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>DATE</span>
-                <strong style={{ color: '#fff' }}>{scannedData.date}</strong>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', fontWeight: 600 }}>DATE</span>
+                <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{scannedData.date}</strong>
               </div>
             </div>
 

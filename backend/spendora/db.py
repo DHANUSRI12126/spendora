@@ -1,14 +1,24 @@
 import os
 import sqlite3
+import tempfile
 from dotenv import load_dotenv
 
 env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 load_dotenv(dotenv_path=env_path)
 load_dotenv()
 
-# Database file path — defaults to spendora.db next to app.py
-_default_db = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'spendora.db')
-DATABASE_PATH = os.getenv('DATABASE_PATH', _default_db)
+# Vercel's deployed filesystem is read-only except for /tmp.
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_default_db = os.path.join(_backend_dir, 'spendora.db')
+_vercel_db = os.path.join(tempfile.gettempdir(), 'spendora.db')
+
+_env_db = os.getenv('DATABASE_PATH')
+if os.getenv('VERCEL'):
+    DATABASE_PATH = _vercel_db
+elif _env_db:
+    DATABASE_PATH = _env_db if os.path.isabs(_env_db) else os.path.join(_backend_dir, _env_db)
+else:
+    DATABASE_PATH = _default_db
 
 
 class ContextCursor(sqlite3.Cursor):
@@ -53,6 +63,9 @@ CREATE TABLE IF NOT EXISTS categories (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE (name, type, user_id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_system_unique ON categories (name, type) WHERE is_system = 1;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_user_unique ON categories (name, type, user_id) WHERE user_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS income (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -214,13 +227,18 @@ def init_db():
 
     # Seed system categories if not already present
     for name, cat_type, is_system in SEED_CATEGORIES:
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO categories (name, type, is_system, user_id, status)
-            VALUES (?, ?, ?, NULL, 'active')
-            """,
-            (name, cat_type, is_system)
-        )
+        exists = conn.execute(
+            "SELECT 1 FROM categories WHERE name = ? AND type = ? AND is_system = 1",
+            (name, cat_type)
+        ).fetchone()
+        if not exists:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO categories (name, type, is_system, user_id, status)
+                VALUES (?, ?, ?, NULL, 'active')
+                """,
+                (name, cat_type, is_system)
+            )
 
     # Seed default demo users if not present
     seed_users = [

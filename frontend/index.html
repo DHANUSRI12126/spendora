@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Spendora is an AI-powered personal and group expense manager and budget assistant that helps you track cash flows, split bills, and save money." />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('spendora_theme');
+          var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var active = saved === 'light' || saved === 'dark' ? saved : (saved === 'system' ? (systemDark ? 'dark' : 'light') : 'dark');
+          document.documentElement.setAttribute('data-theme', active);
+          document.documentElement.style.colorScheme = active;
+        } catch (e) {}
+      })();
+    </script>
     <title>Spendora - AI Expense Manager & Budget Assistant</title>
   </head>
   <body>

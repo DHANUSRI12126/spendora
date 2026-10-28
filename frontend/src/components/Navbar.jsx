@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { Bell, Menu, User, Mic } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ThemeToggle from './ThemeToggle';
 
 const Navbar = ({ toggleSidebar, pageTitle }) => {
   const { user } = useAuth();
@@ -22,9 +23,9 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '16px 40px',
-      background: 'rgba(10, 12, 16, 0.5)',
+      background: 'var(--navbar-bg)',
       backdropFilter: 'blur(10px)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+      borderBottom: '1px solid var(--border-color)',
       position: 'sticky',
       top: 0,
       zIndex: 900
@@ -37,20 +38,21 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
           style={{
             background: 'none',
             border: 'none',
-            color: '#fff',
+            color: 'var(--text-primary)',
             cursor: 'pointer',
             padding: '4px',
             display: 'none'
           }}
           className="mobile-hamburger"
+          aria-label="Toggle navigation menu"
         >
           <Menu size={24} />
         </button>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#fff' }}>{pageTitle}</h2>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--heading-color)' }}>{pageTitle}</h2>
       </div>
 
-      {/* Right side: Language, Currency, Voice, Notifications & Profile */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      {/* Right side: Language, Currency, Theme, Voice, Notifications & Profile */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 
         {/* Currency Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -59,9 +61,9 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
             onChange={(e) => changeCurrency(e.target.value)}
             style={{
               background: 'rgba(99, 102, 241, 0.1)',
-              border: '1px solid rgba(99, 102, 241, 0.25)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
-              color: '#fff',
+              color: 'var(--text-primary)',
               padding: '6px 10px',
               fontSize: '0.8rem',
               fontWeight: 600,
@@ -71,7 +73,7 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
             title="Select Currency"
           >
             {Object.values(currencies).map(c => (
-              <option key={c.code} value={c.code} style={{ background: '#1e2536', color: '#fff' }}>
+              <option key={c.code} value={c.code}>
                 {c.label}
               </option>
             ))}
@@ -85,9 +87,9 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
             onChange={(e) => changeLanguage(e.target.value)}
             style={{
               background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
-              color: '#fff',
+              color: 'var(--text-primary)',
               padding: '6px 10px',
               fontSize: '0.8rem',
               fontWeight: 600,
@@ -97,18 +99,22 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
             title="Select Language"
           >
             {Object.values(languages).map(l => (
-              <option key={l.code} value={l.code} style={{ background: '#1e2536', color: '#fff' }}>
+              <option key={l.code} value={l.code}>
                 {l.flag} {l.name}
               </option>
             ))}
           </select>
         </div>
+
+        {/* Theme Switcher Toggle */}
+        <ThemeToggle />
+
         {/* Quick Voice Shortcut */}
         <button
           onClick={() => navigate('/voice-assistant')}
           style={{
             background: 'rgba(99, 102, 241, 0.1)',
-            border: '1px solid rgba(99, 102, 241, 0.2)',
+            border: '1px solid var(--border-color)',
             borderRadius: '50%',
             width: '40px',
             height: '40px',
@@ -117,7 +123,8 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
             justifyContent: 'center',
             color: 'var(--primary)',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            flexShrink: 0
           }}
           title="Voice Assistant"
         >
@@ -129,8 +136,8 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
           <button 
             onClick={() => setShowDropdown(!showDropdown)}
             style={{
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
+              background: 'var(--input-bg)',
+              border: '1px solid var(--border-color)',
               borderRadius: '50%',
               width: '40px',
               height: '40px',
@@ -139,8 +146,10 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
               justifyContent: 'center',
               color: 'var(--text-secondary)',
               cursor: 'pointer',
-              position: 'relative'
+              position: 'relative',
+              flexShrink: 0
             }}
+            aria-label="Notifications"
           >
             <Bell size={18} />
             {unreadCount > 0 && (
@@ -179,22 +188,22 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
                 top: '48px',
                 right: 0,
                 width: '320px',
-                background: 'rgba(30, 37, 54, 0.95)',
+                background: 'var(--modal-bg)',
                 backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                border: '1px solid var(--border-color)',
                 borderRadius: '12px',
-                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
+                boxShadow: '0 10px 40px var(--glass-shadow)',
                 zIndex: 999,
                 overflow: 'hidden'
               }}>
                 <div style={{
                   padding: '14px 18px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderBottom: '1px solid var(--border-color)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Notifications</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--heading-color)' }}>Notifications</span>
                   {unreadCount > 0 && (
                     <button 
                       onClick={() => { markAllAsRead(); setShowDropdown(false); }}
@@ -223,8 +232,8 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
                         key={notif.id}
                         style={{
                           padding: '12px 18px',
-                          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                          background: notif.is_read ? 'transparent' : 'rgba(99, 102, 241, 0.04)',
+                          borderBottom: '1px solid var(--border-color)',
+                          background: notif.is_read ? 'transparent' : 'rgba(99, 102, 241, 0.08)',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '4px',
@@ -236,7 +245,7 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
                           <span style={{ 
                             fontWeight: notif.is_read ? 500 : 700, 
                             fontSize: '0.82rem',
-                            color: notif.is_read ? 'var(--text-primary)' : '#fff' 
+                            color: notif.is_read ? 'var(--text-primary)' : 'var(--heading-color)' 
                           }}>
                             {notif.title}
                           </span>
@@ -266,8 +275,8 @@ const Navbar = ({ toggleSidebar, pageTitle }) => {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
+          background: 'var(--input-bg)',
+          border: '1px solid var(--border-color)',
           borderRadius: '24px',
           padding: '4px 14px 4px 6px'
         }}>

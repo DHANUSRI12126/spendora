@@ -41,7 +41,8 @@ const Budgets = () => {
 
       // Get categories
       const catRes = await api.get('/categories');
-      setCategories(catRes.data.categories.filter(c => c.type === 'expense') || []);
+      const rawCats = catRes.data.categories?.filter(c => c.type === 'expense') || [];
+      setCategories(Array.from(new Map(rawCats.map(c => [c.name.toLowerCase(), c])).values()));
     } catch (e) {
       console.error(e);
       showToast("Failed to load budget telemetry.", "error");

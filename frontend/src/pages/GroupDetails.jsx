@@ -75,7 +75,8 @@ const GroupDetails = () => {
 
       // Fetch categories for expenses dropdown
       const catResponse = await api.get('/categories');
-      setCategories(catResponse.data.categories.filter(c => c.type === 'expense') || []);
+      const rawCats = catResponse.data.categories?.filter(c => c.type === 'expense') || [];
+      setCategories(Array.from(new Map(rawCats.map(c => [c.name.toLowerCase(), c])).values()));
 
       // Default paid_by_id in form if not set
       if (!expenseForm.paid_by_id && m.length > 0) {

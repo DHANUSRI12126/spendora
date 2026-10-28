@@ -42,6 +42,7 @@ app.register_blueprint(voice_bp, url_prefix='/api/voice')
 
 # Base probe endpoint
 @app.route('/health', methods=['GET'])
+@app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({
         'status': 'healthy',

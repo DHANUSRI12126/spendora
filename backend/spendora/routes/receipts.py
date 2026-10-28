@@ -90,18 +90,23 @@ def parse_receipt_text_lines(text_lines, filename="receipt.jpg"):
     ignore_headers = {
         'tax invoice', 'invoice', 'receipt', 'bill', 'welcome', 'cash memo', 
         'original', 'duplicate', 'customer copy', 'retail invoice', 'tax bill',
-        'sl no', 'sn item', 'sn', 'item', 'qty', 'rate', 'price', 'amt', 'amount'
+        'sl no', 'sn item', 'sn', 'item', 'qty', 'rate', 'price', 'amt', 'amount',
+        'logo', 'bill to', 'ship to', 'sold to', 'billed to', 'invoice to', 'to:',
+        'payment instructions', 'authorized', 'authorized signatory', 'signature',
+        'description', 'payment', 'terms & conditions', 'terms', 'thank you',
+        'visit again', 'subtotal', 'total', 'balance due', 'due date', 'invoice date'
     }
     merchant_name = None
-    for line in text_lines[:6]:
+    for line in text_lines[:10]:
         cleaned = line.strip()
         if not cleaned or len(cleaned) < 2:
             continue
         if cleaned.lower() in ignore_headers:
             continue
-        if re.match(r'^(date|time|phone|tel|mobile|gst|gstin|bill no|invoice no|sn|sl|no[:\.\s])', cleaned.lower()):
+        if re.match(r'^(date|time|phone|tel|mobile|gst|gstin|bill to|ship to|bill no|invoice no|sn|sl|no[:\.\s]|emad|email|pay cheque|authorized|due date)', cleaned.lower()):
             continue
-        if re.search(r'[a-zA-Z]{2,}', cleaned):
+        # Check if line contains letters and isn't just symbols or numbers
+        if re.search(r'[a-zA-Z]{3,}', cleaned):
             merchant_name = cleaned
             break
 
@@ -116,69 +121,94 @@ def parse_receipt_text_lines(text_lines, filename="receipt.jpg"):
         'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
     }
 
-    # Pattern A: 23-Jan-2025 or 23/JAN/25
-    m1 = re.search(r'\b(\d{1,2})[-/\.]([A-Za-z]{3})[-/\.](\d{2,4})\b', full_text)
-    # Pattern B: 2025-01-23 or 2025/01/23
-    m2 = re.search(r'\b(20\d{2})[-/\.](0?[1-9]|1[0-2])[-/\.](0?[1-9]|[12]\d|3[01])\b', full_text)
-    # Pattern C: 23-01-2025 or 23/01/25
-    m3 = re.search(r'\b(0?[1-9]|[12]\d|3[01])[-/\.](0?[1-9]|1[0-2])[-/\.](20\d{2}|\d{2})\b', full_text)
+    # Pattern A: Month Name Day, Year (e.g. Jun 22, 2021 or June 22, 2021 or Jun 22.2021)
+    m_mdy = re.search(r'\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,\s\.\-]+(\d{1,2})(?:st|nd|rd|th)?[,\s\.\-]+(20\d{2}|\d{2})\b', full_text, re.IGNORECASE)
+    # Pattern B: Day Month Name Year (e.g. 22 Jun 2021 or 22-Jun-2021)
+    m_dmy_name = re.search(r'\b(\d{1,2})(?:st|nd|rd|th)?[,\s\.\-]+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,\s\.\-]+(20\d{2}|\d{2})\b', full_text, re.IGNORECASE)
+    # Pattern C: ISO YYYY-MM-DD or YYYY/MM/DD
+    m_iso = re.search(r'\b(20\d{2})[-/\.](0?[1-9]|1[0-2])[-/\.](0?[1-9]|[12]\d|3[01])\b', full_text)
+    # Pattern D: DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+    m_dmy = re.search(r'\b(0?[1-9]|[12]\d|3[01])[-/\.](0?[1-9]|1[0-2])[-/\.](20\d{2}|\d{2})\b', full_text)
 
-    if m1:
-        d, m, y = m1.groups()
+    if m_mdy:
+        m, d, y = m_mdy.groups()
         m_num = month_map.get(m.lower()[:3], '01')
         y_num = f"20{y}" if len(y) == 2 else y
         extracted_date = f"{y_num}-{int(m_num):02d}-{int(d):02d}"
-    elif m2:
-        y, m, d = m2.groups()
+    elif m_dmy_name:
+        d, m, y = m_dmy_name.groups()
+        m_num = month_map.get(m.lower()[:3], '01')
+        y_num = f"20{y}" if len(y) == 2 else y
+        extracted_date = f"{y_num}-{int(m_num):02d}-{int(d):02d}"
+    elif m_iso:
+        y, m, d = m_iso.groups()
         extracted_date = f"{y}-{int(m):02d}-{int(d):02d}"
-    elif m3:
-        d, m, y = m3.groups()
+    elif m_dmy:
+        d, m, y = m_dmy.groups()
         y_num = f"20{y}" if len(y) == 2 else y
         extracted_date = f"{y_num}-{int(m):02d}-{int(d):02d}"
 
     # 3. AMOUNT EXTRACTION
     extracted_amount = 0.0
-    total_candidates = []
 
-    for line in text_lines:
+    # Step 1: Collect all valid monetary decimals across the full text (e.g. 1564.00, 1,028.00, 304.00)
+    all_floats = re.findall(r'(?<![A-Za-z0-9\-])([0-9]{1,7}(?:,[0-9]{3})*\.[0-9]{2})\b', full_text)
+    monetary_floats = []
+    for n in all_floats:
+        try:
+            v = float(n.replace(',', ''))
+            if 1.0 <= v <= 10000000 and v not in (2020.0, 2021.0, 2022.0, 2023.0, 2024.0, 2025.0, 2026.0):
+                monetary_floats.append(v)
+        except ValueError:
+            pass
+
+    # Step 2: Search for amounts directly associated with total / balance keywords
+    total_keywords = [
+        'total', 'grand total', 'net amt', 'net amount', 'amount payable', 
+        'bal due', 'balance due', 'to pay', 'subtotal', 'sub total', 'total:', 'balance'
+    ]
+    keyword_floats = []
+    for idx, line in enumerate(text_lines):
         line_l = line.lower()
-        if any(kw in line_l for kw in ['total', 'grand total', 'net amt', 'net amount', 'amount payable', 'bal due', 'to pay', 'subtotal', 'sub total', 'total:']):
-            found_nums = re.findall(r'[\d,]+\.\d{2}', line)
-            if not found_nums:
-                found_nums = re.findall(r'\b\d+\b', line)
-            for n in found_nums:
+        if any(kw in line_l for kw in total_keywords):
+            search_window = " ".join(text_lines[idx:min(len(text_lines), idx + 3)])
+            nums = re.findall(r'(?<![A-Za-z0-9\-])([0-9]{1,7}(?:,[0-9]{3})*\.[0-9]{2})\b', search_window)
+            for n in nums:
                 try:
                     val = float(n.replace(',', ''))
-                    if 1.0 <= val <= 500000 and val not in (2024.0, 2025.0, 2026.0):
-                        total_candidates.append(val)
+                    if 1.0 <= val <= 10000000 and val not in (2020.0, 2021.0, 2022.0, 2023.0, 2024.0, 2025.0, 2026.0):
+                        keyword_floats.append(val)
                 except ValueError:
                     pass
 
-    if total_candidates:
-        extracted_amount = max(total_candidates)
+    if keyword_floats:
+        max_kw = max(keyword_floats)
+        max_all = max(monetary_floats) if monetary_floats else 0.0
+        extracted_amount = max_all if max_all > max_kw else max_kw
+    elif monetary_floats:
+        extracted_amount = max(monetary_floats)
     else:
-        # Fallback: scan all monetary floats across receipt text
-        all_floats = re.findall(r'[\d,]+\.\d{2}', full_text)
-        valid_vals = []
-        for n in all_floats:
-            try:
-                v = float(n.replace(',', ''))
-                if 1.0 <= v <= 200000 and v not in (2024.0, 2025.0, 2026.0):
-                    valid_vals.append(v)
-            except ValueError:
-                pass
-        if valid_vals:
-            extracted_amount = max(valid_vals)
+        # Fallback to integer numbers (ignoring invoice numbers, phone numbers, codes)
+        int_candidates = []
+        for line in text_lines:
+            if re.search(r'(inv|no|phone|tel|mob|date|gst|pin|zip|qty)', line.lower()):
+                continue
+            for match in re.finditer(r'\b(\d{2,6})\b', line):
+                val = float(match.group(1))
+                if 10.0 <= val <= 500000 and val not in (2020.0, 2021.0, 2022.0, 2023.0, 2024.0, 2025.0, 2026.0):
+                    int_candidates.append(val)
+        if int_candidates:
+            extracted_amount = max(int_candidates)
 
     # 4. CATEGORY CLASSIFICATION
     raw_cat = 'Other'
-    if re.search(r'\b(food|restaurant|cafe|dining|swiggy|zomato|burger|pizza|bakery|snack|tea|coffee|hotel|kitchen|sweet|biryani|walnut|powder|cheese|milk|juice|fruit|veg|grocery|paneer|curd|paneer|dal|rice|oil|biscuit)\b', text_lower):
+    if re.search(r'\b(food|restaurant|cafe|dining|swiggy|zomato|burger|pizza|bakery|snack|tea|coffee|hotel|kitchen|sweet|biryani|walnut|powder|cheese|milk|juice|fruit|veg|grocery|paneer|curd|dal|rice|oil|biscuit)\b', text_lower):
         raw_cat = 'Food'
-    elif re.search(r'\b(cab|uber|ola|petrol|diesel|fuel|shell|parking|toll|auto|rail|bus|flight|metro|transport|garage|service|indane)\b', text_lower):
+    elif re.search(r'\b(cab|uber|ola|petrol|diesel|fuel|shell|parking|toll|auto|rail|bus|flight|metro|transport|garage|indane)\b', text_lower):
         raw_cat = 'Transport'
-    elif re.search(r'\b(mart|store|cloth|apparel|fashion|amazon|flipkart|supermarket|retail|footwear|electronic|mall|pant|shirt|shoe|dress|dmart|zudio|pantaloons)\b', text_lower):
+    elif re.search(r'\b(mart|store|cloth|apparel|fashion|amazon|flipkart|supermarket|retail|footwear|electronic|mall|pant|shirt|shoe|dress|furniture|dmart|zudio|pantaloons)\b', text_lower):
         raw_cat = 'Shopping'
-    elif re.search(r'\b(electricity|water|gas|mobile|recharge|broadband|wifi|utility|power|bill|airtel|jio|vi|tata)\b', text_lower):
+    elif re.search(r'\b(electricity|water|gas|mobile|recharge|broadband|wifi|utility|power|bill|airtel|jio|vi|tata|plumbing|plumb|service|repair|maintenance)\b', text_lower):
         raw_cat = 'Bills'
     elif re.search(r'\b(pharmacy|medical|hospital|doctor|lab|health|clinic|drug|chemist|medicine|apollo|medplus)\b', text_lower):
         raw_cat = 'Healthcare'
@@ -186,7 +216,7 @@ def parse_receipt_text_lines(text_lines, filename="receipt.jpg"):
         raw_cat = 'Education'
     elif re.search(r'\b(hotel|resort|ticket|tour|stay|lodging|trip|make my trip|goibibo)\b', text_lower):
         raw_cat = 'Travel'
-    elif re.search(r'\b(cinema|movie|pvr|theatre|event|game|park|show|ticket|inox|playstand)\b', text_lower):
+    elif re.search(r'\b(cinema|movie|pvr|theatre|event|game|park|show|inox|playstand)\b', text_lower):
         raw_cat = 'Entertainment'
     elif re.search(r'\b(rent|lease|landlord|house)\b', text_lower):
         raw_cat = 'Rent'
@@ -197,7 +227,7 @@ def parse_receipt_text_lines(text_lines, filename="receipt.jpg"):
         payment_method = 'Card'
     elif re.search(r'\b(cash|change)\b', text_lower):
         payment_method = 'Cash'
-    elif re.search(r'\b(netbanking|neft|rtgs|imps)\b', text_lower):
+    elif re.search(r'\b(netbanking|neft|rtgs|imps|cheque|check)\b', text_lower):
         payment_method = 'NetBanking'
 
     summary = f"Scanned receipt from {merchant_name} on {extracted_date} (Total: ₹{extracted_amount:.2f})"
@@ -236,27 +266,39 @@ def configure_pytesseract():
 
 def local_ocr_scan(image_bytes, filename):
     """
-    Extracts text lines using EasyOCR or PyTesseract and parses details.
+    Extracts text lines using WinOCR (Windows Native Media OCR), EasyOCR, or PyTesseract,
+    and parses details.
     """
     text_lines = []
 
-    # 1. Try EasyOCR
-    reader = get_easyocr_reader()
-    if reader:
-        try:
-            results = reader.readtext(image_bytes, detail=0)
-            if results:
-                text_lines = [str(r).strip() for r in results if str(r).strip()]
-        except Exception as e:
-            print(f"EasyOCR read error: {str(e)}")
+    # 1. Try Windows Native Media OCR (winocr) - fast, offline, and reliable on Windows 10/11
+    try:
+        import winocr
+        img = Image.open(io.BytesIO(image_bytes))
+        ocr_res = winocr.recognize_pil_sync(img, lang='en')
+        if ocr_res and ocr_res.get('lines'):
+            text_lines = [l['text'].strip() for l in ocr_res['lines'] if l.get('text', '').strip()]
+            print(f"WinOCR extracted {len(text_lines)} text lines successfully.")
+    except Exception as e:
+        print(f"WinOCR attempt notice: {str(e)}")
 
-    # 2. Try PyTesseract if EasyOCR didn't yield results
+    # 2. Try EasyOCR if WinOCR didn't yield results
+    if not text_lines:
+        reader = get_easyocr_reader()
+        if reader:
+            try:
+                results = reader.readtext(image_bytes, detail=0)
+                if results:
+                    text_lines = [str(r).strip() for r in results if str(r).strip()]
+            except Exception as e:
+                print(f"EasyOCR read error: {str(e)}")
+
+    # 3. Try PyTesseract if previous engines didn't yield results
     if not text_lines:
         try:
             import pytesseract
             configure_pytesseract()
             img = Image.open(io.BytesIO(image_bytes))
-            # Convert image to RGB/Grayscale for clean text extraction
             img_gray = img.convert('L')
             raw = pytesseract.image_to_string(img_gray)
             lines = [l.strip() for l in raw.split('\n') if l.strip()]
@@ -270,10 +312,9 @@ def local_ocr_scan(image_bytes, filename):
         if parsed and parsed.get('amount', 0) > 0:
             return parsed
         elif parsed:
-            # If text lines were extracted but amount was 0, keep parsed info
             return parsed
 
-    # 3. Fallback if no OCR engine could read text lines
+    # 4. Fallback if no OCR engine could read text lines
     today_str = datetime.date.today().strftime('%Y-%m-%d')
     cleaned = filename.lower()
     if 'food' in cleaned or 'swiggy' in cleaned or 'zomato' in cleaned:

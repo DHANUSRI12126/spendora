@@ -88,14 +88,14 @@ def login():
             user = cursor.fetchone()
 
             if not user:
-                return jsonify({'message': 'Invalid email or password.'}), 401
+                return jsonify({'message': 'No account found with this email. Please check your email or click Create an account below.'}), 401
 
             if user['status'] == 'inactive':
                 return jsonify({'message': 'Your account has been deactivated. Please contact support.'}), 403
 
             # Verify bcrypt password hash
             if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-                return jsonify({'message': 'Invalid email or password.'}), 401
+                return jsonify({'message': 'Incorrect password. Please try again or reset your password.'}), 401
 
             # Generate JWT
             token = generate_token(user['id'], user['email'], user['role'])

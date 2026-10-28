@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
       setUser(loggedUser);
       return loggedUser;
     } catch (error) {
-      if (!error.response) {
+      if (!error.response || [502, 503, 504].includes(error.response.status)) {
         throw "Cannot connect to backend server. Please make sure the backend is running on port 5000.";
       }
       throw error.response?.data?.message || "Login failed. Please check your credentials.";
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       });
       return response.data;
     } catch (error) {
-      if (!error.response) {
+      if (!error.response || [502, 503, 504].includes(error.response.status)) {
         throw "Cannot connect to backend server. Please make sure the backend is running on port 5000.";
       }
       throw error.response?.data?.message || "Registration failed. Try again.";

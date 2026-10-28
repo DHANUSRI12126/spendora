@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { Lock, Mail, ArrowLeft, Shield } from 'lucide-react';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
+import ThemeToggle from '../components/ThemeToggle';
 
 const Login = () => {
   const { login } = useAuth();
@@ -50,23 +51,25 @@ const Login = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#0a0c10',
-      background: 'radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.1) 0%, rgba(10, 12, 16, 1) 60%)',
+      backgroundColor: 'var(--bg-primary)',
+      background: 'radial-gradient(circle at bottom left, var(--landing-glow) 0%, var(--bg-primary) 60%)',
       padding: '20px'
     }}>
       <div style={{ maxWidth: '420px', width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {/* Back Link */}
-        <Link to="/" style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          color: 'var(--text-secondary)',
-          fontSize: '0.85rem',
-          alignSelf: 'flex-start'
-        }}>
-          <ArrowLeft size={16} /> Back to Landing Page
-        </Link>
+        {/* Back Link & Theme Toggle Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <Link to="/" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: 'var(--text-secondary)',
+            fontSize: '0.85rem'
+          }}>
+            <ArrowLeft size={16} /> Back to Landing Page
+          </Link>
+          <ThemeToggle />
+        </div>
 
         {/* Card Panel */}
         <div className="card" style={{ padding: '40px 30px' }}>
@@ -105,16 +108,32 @@ const Login = () => {
 
           {errorMsg && (
             <div style={{
-              padding: '12px',
+              padding: '12px 14px',
               borderRadius: '8px',
               background: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.25)',
               color: 'var(--danger)',
-              fontSize: '0.82rem',
+              fontSize: '0.84rem',
               textAlign: 'center',
-              marginBottom: '20px'
+              marginBottom: '20px',
+              lineHeight: 1.4
             }}>
-              {errorMsg}
+              <div>{errorMsg}</div>
+              {errorMsg.toLowerCase().includes('account') && (
+                <div style={{ marginTop: '8px' }}>
+                  <Link 
+                    to="/register" 
+                    state={{ email }}
+                    style={{ 
+                      fontWeight: 700, 
+                      color: 'var(--primary)', 
+                      textDecoration: 'underline' 
+                    }}
+                  >
+                    👉 Click here to create your account
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 

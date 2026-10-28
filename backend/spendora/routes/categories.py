@@ -15,12 +15,19 @@ def get_categories():
             # Regular user gets system categories + their own custom categories
             # Admin gets all categories
             if g.current_user['role'] == 'ADMIN':
-                sql = "SELECT * FROM categories ORDER BY is_system DESC, name ASC"
+                sql = """
+                    SELECT id, name, type, is_system, user_id, status, created_at 
+                    FROM categories 
+                    GROUP BY name, type, user_id
+                    ORDER BY is_system DESC, name ASC
+                """
                 cursor.execute(sql)
             else:
                 sql = """
-                    SELECT * FROM categories 
+                    SELECT id, name, type, is_system, user_id, status, created_at 
+                    FROM categories 
                     WHERE (is_system = 1 OR user_id = ?) AND status = 'active'
+                    GROUP BY name, type, user_id
                     ORDER BY is_system DESC, name ASC
                 """
                 cursor.execute(sql, (g.current_user['id'],))
